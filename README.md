@@ -7,6 +7,8 @@ Professional title project · Secure Infrastructure Administrator (AIS) · RNCP3
 
 **▶ Read the project online: https://0x1void.github.io/hybrid-infrasec/**
 
+**⬇ Full report, public edition (PDF, EN + FR, watermarked): [Hybrid-InfraSec_CCP1-2-3_public.pdf](docs/dossier/Hybrid-InfraSec_CCP1-2-3_public.pdf)**
+
 ---
 
 ## English
@@ -57,7 +59,7 @@ One hypervisor runs seven virtual machines. pfSense is the only exit. Behind it 
 
 ### Status and advice
 
-The project is **complete and read-only**. The sources stay private; this repository only publishes the website.
+The project is **complete and read-only**. The sources stay private; this repository publishes the website and the public edition of the report (PDF, watermarked on every page).
 **Your advice is welcome:** open a thread in [Discussions](https://github.com/0x1void/hybrid-infrasec/discussions). It helps me for the next project.
 
 ### Licence
@@ -128,8 +130,10 @@ Un tunnel WireGuard ouvre deux profils séparés. L'administrateur joint le LAN 
 
 ### Statut et conseils
 
-Le projet est **terminé et en lecture seule**. Les sources restent privées ; ce dépôt publie uniquement le site.
+Le projet est **terminé et en lecture seule**. Les sources restent privées ; ce dépôt publie le site et l’édition publique du dossier (PDF filigrané sur chaque page).
 **Vos conseils sont les bienvenus :** ouvrez un fil dans [Discussions](https://github.com/0x1void/hybrid-infrasec/discussions). Ils m'aident pour le projet suivant.
+
+Dossier complet, édition publique (PDF, FR + EN, filigrané) : [Hybrid-InfraSec_CCP1-2-3_public.pdf](docs/dossier/Hybrid-InfraSec_CCP1-2-3_public.pdf)
 
 ### Licence
 
