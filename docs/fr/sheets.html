@@ -1,0 +1,962 @@
+<!doctype html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Fiches d’incident et de constat · Hybrid InfraSec</title><meta name="robots" content="index,follow"><link rel="stylesheet" href="../assets/site.css"></head>
+<body class=""><svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs><marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ahd"/></marker><marker id="ahs" viewBox="0 0 10 10" refX="1" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ahd"/></marker><pattern id="hatch" width="8" height="8" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><line x1="0" y1="0" x2="0" y2="8" class="hatch"/></pattern></defs></svg>
+<header class="top"><div class="bar"><a class="brand" href="../fr/index.html"><span class="lambda">λ</span> hybrid-infrasec</a>
+<button class="menu" aria-expanded="false" aria-controls="nav" onclick="document.body.classList.toggle('navopen');this.setAttribute('aria-expanded',document.body.classList.contains('navopen'))">☰</button>
+<a class="lang" href="../sheets.html">English</a><a class="advice" href="https://github.com/0x1void/hybrid-infrasec/discussions" rel="noopener">Donner un conseil</a></div>
+<nav id="nav"><a href="../fr/index.html">Accueil</a><a href="../fr/presentation.html">Présentation</a><a href="../fr/architecture.html">Architecture</a><a href="../fr/intro.html">Le projet</a><a href="../fr/ccp1.html">CCP1 · Le socle</a><a href="../fr/ccp2.html">CCP2 · L’évolution</a><a href="../fr/ccp3.html">CCP3 · Cybersécurité</a><a href="../fr/sheets.html" aria-current="page">Fiches d’incident</a><a href="../fr/commands.html">Commandes</a><a href="../fr/annexes.html">Annexes</a><a href="../fr/glossary.html">Glossaire</a><a href="../fr/revision.html">Révision CCP3</a></nav></header>
+<main class="withtoc"><aside class="toc"><b>Sur cette page</b><a class="l2" href="#fiche-fr-inc-08">INC-08 — Disponibilité : Cockpit de l&#x27;hyperviseur injoignable hors du réseau domestique</a><a class="l2" href="#fiche-fr-inc-09">INC-09 — Supervision : le pod Zabbix ne redémarre pas avec la VM (déploiement hors systemd)</a><a class="l2" href="#fiche-fr-inc-10">INC-10 — Changement F-13 : l&#x27;hôte perd son adresse sur le LAN du labo (configuration non persistante révélée)</a><a class="l2" href="#fiche-fr-inc-11">INC-11 — Détection : le manager Wazuh échoue au démarrage, SIEM aveugle pendant 3 h 10 sans alerte</a><a class="l2" href="#fiche-fr-f-13">F-13 — L&#x27;hyperviseur peut relayer du trafic entre le réseau extérieur et le LAN du labo, hors pfSense</a><a class="l2" href="#fiche-fr-f-14">F-14 — Disponibilité : la base de vulnérabilités du SIEM échoue à se mettre à jour quand le labo démarre dans le désordre</a><a class="l2" href="#fiche-fr-f-15">F-15 — Le SIEM n&#x27;a aucun firewall local : tous ses services sont ouverts au LAN</a><a class="l2" href="#fiche-fr-f-16">F-16 — Le disque du SIEM n&#x27;est pas supervisé (et une fausse alerte de croissance)</a><a class="l2" href="#fiche-fr-f-17">F-17 — Navigation web sur le contrôleur de domaine, avec le compte Administrateur intégré</a><a class="l2" href="#fiche-fr-f-18">F-18 — Arrêter l&#x27;agent Wazuh du contrôleur de domaine ne déclenche aucune alerte</a><a class="l2" href="#fiche-fr-f-19">F-19 — Persistance par le dossier de démarrage : détectée, mais sous le seuil d&#x27;alerte</a><a class="l2" href="#fiche-fr-f-20">F-20 — L&#x27;audit des partages ne voyait que les connexions, pas les fichiers</a><a class="l2" href="#fiche-fr-f-21">F-21 — Journaux du SIEM : aucune durée de conservation, et 9 jours sur 10 jamais scellés</a><a class="l2" href="#fiche-fr-f-22">F-22 — Les secrets d&#x27;installation du SIEM traînaient en clair sur le SIEM</a><a class="l2" href="#fiche-fr-f-23">F-23 — L&#x27;hyperviseur manquait de mémoire : 29 Gio alloués sur 30, l&#x27;hôte utilisait son swap</a><a class="l2" href="#fiche-fr-f-24">F-24 — Mots de passe : aucun verrouillage dans les deux domaines, puis un verrouillage sans alerte</a><a class="l2" href="#fiche-fr-f-25">F-25 — Le contrôleur Samba n&#x27;avait aucun pare-feu</a><a class="l2" href="#fiche-fr-f-26">F-26 — Deux machines ignorent la demande d&#x27;arrêt de l&#x27;hyperviseur</a><a class="l2" href="#fiche-fr-pv-05">PV-05 — Entreprise INFRASEC : annuaire, partages par service et contrôle d&#x27;accès (AGDLP)</a><a class="l2" href="#fiche-fr-pv-06">PV-06 — Sauvegarde éprouvée : restauration d&#x27;un fichier supprimé par un utilisateur</a><a class="l2" href="#fiche-fr-pv-07">PV-07 — Administration du contrôleur de domaine en SSH, limitée à l&#x27;hyperviseur</a><a class="l2" href="#fiche-fr-pv-08">PV-08 — Domaine Linux de continuité `infrasec.internal` : entreprise, détection et résolution croisée</a><a class="l2" href="#fiche-fr-pv-09">PV-09 — Sauvegarde du labo : `lab-backup`, niveau local immuable</a><a class="l2" href="#fiche-fr-proc-01">PROC-01 — Procédure de migration de l&#x27;annuaire vers `infrasec.internal`</a></aside><article><div class="lead"><span class="k">Comment lire cette page</span>Dix-huit fiches d’incident et de constat, cinq procès-verbaux et une procédure, rédigés du 21 au 26 octobre 2026. Chaque fiche suit le même plan : constat, cause racine, correction, preuve, enseignement. La preuve est toujours un test rejoué après coup, depuis une machine tierce quand il s’agit de filtrage.</div><h2 id="fiche-fr-inc-08" class="">INC-08 — Disponibilité : Cockpit de l&#x27;hyperviseur injoignable hors du réseau domestique</h2><p><strong>Date du constat :</strong> 21/10/2026 · <strong>Correction :</strong> 23/10/2026<br />
+<strong>Actif concerné :</strong> hyperviseur <code>HV01</code> (hôte <code>TeneT</code>, Fedora Linux 44) — service <code>cockpit.socket</code>, firewall de l'hôte (<code>firewalld</code>, zone <code>public</code>)<br />
+<strong>Impact :</strong> perte de la console d'administration web de l'hyperviseur ; les VM et leurs services ne sont pas touchés. Administration poursuivie par l'accès de secours (<code>virsh</code> / virt-manager sur la console locale).  </p>
+<h4>Symptôme</h4>
+<p>Connecté au partage de connexion d'un smartphone au lieu du réseau domestique, l'hôte n'offre plus Cockpit, ni depuis le réseau ni en local (<code>https://localhost:9090</code>).</p>
+<h4>Diagnostic</h4>
+<ol>
+<li><code>systemctl cat cockpit.socket</code> : un fichier local (drop-in) remplace l'écoute par défaut — <code>ListenStream=</code> (remise à zéro) puis <code>ListenStream=192.168.1.188:9090</code>.</li>
+<li><code>ss -tlnp | grep 9090</code> : Cockpit n'écoute que sur <code>192.168.1.188:9090</code>, l'adresse de l'hôte sur le réseau domestique.</li>
+<li><code>firewall-cmd --list-all</code> : le service <code>cockpit</code> n'est pas ouvert à toute la zone ; une règle riche l'autorise depuis <code>192.168.1.0/24</code> seulement.</li>
+</ol>
+<h4>Cause racine</h4>
+<p>Deux mesures de durcissement superposées, dont une mal placée. La règle firewalld restreint qui peut joindre Cockpit : c'est le bon niveau. L'écoute épinglée sur une adresse lie en plus la <strong>disponibilité</strong> du service à un réseau précis : sur un autre réseau, l'adresse n'existe plus et Cockpit n'écoute plus nulle part, même en local.</p>
+<h4>Résolution</h4>
+<p><code>systemctl revert cockpit.socket</code> (suppression de la surcharge locale), <code>daemon-reload</code>, redémarrage du socket. La règle firewalld est conservée : l'accès distant reste limité au réseau d'administration.</p>
+<h4>Preuve</h4>
+<ul>
+<li>Aucun drop-in local ; unité d'origine <code>/usr/lib/systemd/system/cockpit.socket</code> : <code>ListenStream=9090</code>.</li>
+<li><code>ss</code> : écoute sur <code>*:9090</code>.</li>
+<li><code>curl -skI https://localhost:9090</code> → <code>HTTP/1.1 200 OK</code> ; console ouverte sur <code>localhost:9090</code>.</li>
+<li>Règle conservée : <code>rule family="ipv4" source address="192.168.1.0/24" service name="cockpit" accept</code>.</li>
+<li><strong>Test en conditions réelles (23/10, 23:52-23:54)</strong>, poste sur le partage de connexion (<code>wlo1</code> = <code>172.20.10.2</code>) :</li>
+<li>avant (ancienne adresse) : <code>192.168.1.188:9090</code> → <em>The connection has timed out</em> (l'adresse n'existe pas sur ce réseau) ;</li>
+<li>après : <code>https://localhost:9090</code> ouvert, terminal disponible.</li>
+</ul>
+<h4>Enseignement</h4>
+<p>(1) On restreint l'accès au niveau du firewall, pas en liant le service à une adresse : la première mesure protège, la seconde ne fait que casser la disponibilité. (2) Un durcissement se teste sur tous les réseaux où l'on travaille réellement. (3) Un accès de secours documenté et éprouvé (console locale, <code>virsh</code>) est ce qui a permis de continuer : sécurité et disponibilité se conçoivent ensemble.</p>
+<h2 id="fiche-fr-inc-09" class="pb">INC-09 — Supervision : le pod Zabbix ne redémarre pas avec la VM (déploiement hors systemd)</h2><p><strong>Date :</strong> 23/10/2026<br />
+<strong>Actif concerné :</strong> VM <code>fedora</code> (<code>10.10.10.30</code>), utilisateur rootless <code>ais</code> — pod <code>zabbix</code> (<code>zbx-db</code>, <code>zbx-server</code>, <code>zbx-web</code>)<br />
+<strong>Impact :</strong> supervision SNMP du firewall <code>fw01</code> interrompue (zone aveugle) ; aucune perte de données. Prometheus, node-exporter et Grafana non affectés.  </p>
+<h4>Symptôme</h4>
+<p>Après le redémarrage de la VM <code>fedora</code>, l'interface web de Zabbix (port 8080) ne répond plus. <code>podman ps -a</code> montre les trois conteneurs du pod <code>Exited (0) 2 days ago</code>, alors que <code>prometheus</code>, <code>node-exporter</code> et <code>grafana</code> sont <code>Up 18 minutes</code> : ils ont redémarré seuls.</p>
+<h4>Diagnostic</h4>
+<ol>
+<li><code>systemctl --failed</code> : aucune unité en échec. Le pod ne plante pas : il n'est simplement pas lancé.</li>
+<li><code>loginctl list-users</code> : <code>Linger=yes</code> pour <code>ais</code>, donc les services utilisateur démarrent au boot sans session ouverte.</li>
+<li><code>ls ~/.config/containers/systemd/</code> : Prometheus, node-exporter et Grafana sont déclarés en fichiers <strong>Quadlet</strong> (<code>*.container</code>), transformés en services systemd au démarrage (<code>grafana.service</code> : <code>generated</code>). Le pod <code>zabbix</code>, créé à la main douze jours plus tôt (<code>podman pod create</code> / <code>podman run</code>), n'a <strong>aucun</strong> fichier Quadlet.</li>
+</ol>
+<h4>Cause racine</h4>
+<p>Déploiement incohérent de la chaîne de supervision : trois composants déclarés à systemd, un composant lancé manuellement. Rien ne relance ce dernier au démarrage.</p>
+<h4>Constat associé (écart à la PSSI, art. 11 — secrets)</h4>
+<p><code>podman secret ls</code> vide : le mot de passe de la base PostgreSQL était passé en variable d'environnement en clair, donc lisible par <code>podman inspect</code> et probablement présent dans l'historique du shell.</p>
+<h4>Résolution</h4>
+<ol>
+<li>Point de retour : instantané <code>pre-zabbix-quadlet</code> de la VM (<code>virsh snapshot-create-as</code>).</li>
+<li>Mot de passe transféré dans un secret Podman <code>zbx-db-password</code> <strong>sans affichage</strong> (<code>podman inspect … | sed … | podman secret create zbx-db-password -</code>).</li>
+<li>Pod décrit en Quadlet : <code>zabbix.pod</code>, <code>zbx-db.container</code>, <code>zbx-server.container</code>, <code>zbx-web.container</code> (dépendances <code>Requires=</code>/<code>After=</code>, <code>Restart=always</code>, <code>WantedBy=default.target</code>, <code>Secret=…,type=env</code>). Validation par <code>quadlet -dryrun -user</code> avant toute bascule.</li>
+<li>Bascule : <code>podman pod rm zabbix</code> (le volume nommé <code>zbx-pg</code> est conservé), <code>daemon-reload</code>, démarrage.</li>
+</ol>
+<h4>Incident secondaire pendant la bascule : refus SELinux</h4>
+<p><code>zbx-db</code> s'arrête aussitôt : <code>chmod: /var/lib/postgresql/data: Permission denied</code>, alors que les fichiers appartiennent bien à <code>70:70</code> (utilisateur <code>postgres</code> de l'image) dans l'espace de noms. Le journal d'audit le confirme :<br />
+<code>avc: denied { setattr } comm="chmod" name="_data" scontext=…container_t:s0:c272,c377 tcontext=…container_file_t:s0:c125,c516 permissive=0</code><br />
+Les types sont corrects ; seules les <strong>catégories MCS</strong> diffèrent : le volume portait l'étiquette privée de l'ancien conteneur. Correction : option <code>:Z</code> sur le volume (<code>Volume=zbx-pg:/var/lib/postgresql/data:Z</code>), qui le ré-étiquette pour son nouveau propriétaire. SELinux reste en mode <code>enforcing</code>.</p>
+<h4>Preuve</h4>
+<ul>
+<li>Après bascule : les quatre unités <code>active (running)</code>, <code>curl -sI http://127.0.0.1:8080</code> → <code>HTTP/1.1 200 OK</code>, PostgreSQL <code>database system is ready to accept connections</code> (récupération WAL terminée, aucune perte).</li>
+<li><code>podman inspect zbx-db … | grep -c '^POSTGRES_PASSWORD='</code> → <code>0</code> : le mot de passe n'apparaît plus dans la configuration du conteneur.</li>
+<li><strong>Test de non-régression</strong> : arrêt puis démarrage complets de la VM ; à <code>up 1 min</code>, les sept conteneurs (dont <code>zbx-db</code>, <code>zbx-server</code>, <code>zbx-web</code>) sont <code>Up</code> sans intervention, et l'interface répond <code>200 OK</code>.</li>
+</ul>
+<h4>Contrôle fonctionnel</h4>
+<p>Zabbix → Hosts : <code>fw01</code> (<code>10.10.10.254:161</code>) disponible en <strong>SNMP</strong>, 100 éléments collectés. Le graphe « Packet filter reason codes » montre un trou de collecte (zone aveugle) puis la reprise des valeurs à 23:14, juste après la bascule.</p>
+<h4>Fausse alerte ouverte depuis 12 jours (constat associé)</h4>
+<p>Le tableau de bord affichait depuis le 11/10 « Linux: Zabbix agent is not available » sur l'hôte <code>Zabbix server</code> : le modèle « Linux by Zabbix agent » attendait un agent sur <code>127.0.0.1:10050</code>, alors qu'aucun agent n'est déployé. L'architecture répartit pourtant les rôles : Prometheus et node-exporter supervisent Linux, Zabbix supervise le firewall en SNMP. Correction : modèle délié et nettoyé (« Unlink and clear », 121 → 78 éléments), interface agent supprimée ; seul « Zabbix server health » (éléments internes) est conservé. Widget « Host availability » étendu au SNMP ; widget Geomap supprimé (aucune localisation renseignée). Résultat : 0 problème, 78 déclencheurs dont 0 en état problème, <code>fw01</code> « Available ».</p>
+<h4>Clôture du constat « secret en clair »</h4>
+<ul>
+<li>Rotation du mot de passe PostgreSQL : nouveau mot de passe aléatoire de 32 caractères, généré dans une variable du shell, transmis à <code>psql</code> par l'entrée standard (<code>ALTER ROLE</code>), puis écrit dans le secret (<code>podman secret create --replace</code>) ; jamais affiché. Redémarrage de <code>zbx-server</code> et <code>zbx-web</code> : connexion à la base sans erreur, <code>HTTP/1.1 200 OK</code>.</li>
+<li>Historique du shell : <strong>5</strong> lignes contenaient l'ancien mot de passe (<code>grep -c 'POSTGRES_PASSWORD=' ~/.bash_history</code> → <code>5</code>), ce qui confirme l'exposition ; supprimées (<code>→ 0</code>).</li>
+<li>Volumes : plus aucun volume orphelin ; restent <code>prometheus-data</code>, <code>grafana-data</code>, <code>zbx-pg</code>, <code>zbx-export</code>, <code>zbx-snmptraps</code>.</li>
+</ul>
+<h4>Enseignement</h4>
+<p>(1) Un service n'est en production que s'il est <strong>déclaré</strong> : tout conteneur lancé à la main est un incident différé ; la règle devient « un service = un fichier Quadlet versionné ». (2) Un refus d'accès alors que les droits Unix sont corrects se lit dans <code>ausearch -m AVC</code> : on corrige l'étiquette, on ne désactive pas SELinux. (3) La preuve d'une correction de redémarrage est un redémarrage. (4) Un secret en variable d'environnement est un secret exposé : <code>podman secret</code> sépare la valeur de la configuration, et un secret exposé se change (rotation), il ne se cache pas. (5) Une alerte qui reste ouverte sans action n'informe plus personne : le périmètre de la supervision doit correspondre à l'architecture.</p>
+<h2 id="fiche-fr-inc-10" class="pb">INC-10 — Changement F-13 : l&#x27;hôte perd son adresse sur le LAN du labo (configuration non persistante révélée)</h2><p><strong>Date :</strong> 24/10/2026, 01:11 → 01:20 (durée de l'interruption : environ 8 minutes)<br />
+<strong>Actif concerné :</strong> hyperviseur <code>HV01</code> (hôte <code>TeneT</code>) — pont <code>br-tenet</code>, connexion NetworkManager <code>br-tenet</code><br />
+<strong>Impact :</strong> l'hôte ne joint plus aucun service du labo (Cockpit de <code>fedora</code>, TrueNAS, API Wazuh, Grafana, Zabbix, pfSense) ; les VM restent en marche et continuent de communiquer entre elles. Aucune perte de données.<br />
+<strong>Changement à l'origine :</strong> correction de F-13 (<code>nmcli con mod br-tenet connection.zone lab-tenet</code> puis <code>nmcli dev reapply br-tenet</code>), précédée de l'instantané <code>PRE-F13-ZONE-LAB</code>.  </p>
+<h4>Symptôme</h4>
+<p>Quelques minutes après le changement, toutes les interfaces web du labo expirent (<em>Connection has timed out</em>, <em>API is down</em>, <em>NetworkError</em>). <code>ping 10.10.10.30</code> depuis l'hôte : 100 % de pertes.</p>
+<h4>Diagnostic (service d'abord, puis cause)</h4>
+<ol>
+<li>Hypothèse 1, les ports des VM détachés du pont par le <code>reapply</code> : écartée. <code>ip -br link show master br-tenet</code> liste les 5 ports côté LAN (<code>vnet2</code>, <code>vnet3</code>, <code>vnet4</code>, <code>vnet6</code>, <code>vnet8</code>), tous <code>forwarding</code> (<code>bridge link</code>).</li>
+<li>Hypothèse 2, la nouvelle zone bloque les réponses : remise de <code>br-tenet</code> dans <code>public</code> à chaud ; le ping échoue toujours. La zone n'est pas en cause.</li>
+<li><code>ip -br addr show dev br-tenet</code> : le pont est <code>UP</code> <strong>sans adresse</strong> ; plus de route <code>10.10.10.0/24</code>. <code>nmcli con show br-tenet</code> : <code>ipv4.method: disabled</code>, <code>ipv4.addresses: --</code>.</li>
+</ol>
+<h4>Cause racine</h4>
+<p>L'adresse <code>10.10.10.2/24</code> de l'hôte n'avait jamais été déclarée dans NetworkManager : elle avait été ajoutée à la main (<code>ip addr add</code>), comme l'indiquait déjà la route <code>10.10.10.0/24</code> sans métrique (les routes créées par NetworkManager en portent une). Le <code>reapply</code> a remis la connexion dans l'état déclaré, sans adresse. La même fragilité existait à chaque redémarrage de l'hôte.</p>
+<h4>Rétablissement et correction</h4>
+<ol>
+<li>Rétablissement : <code>ip addr add 10.10.10.2/24 dev br-tenet</code> → ping <code>0 % de pertes</code>, Zabbix <code>HTTP/1.1 200 OK</code>.</li>
+<li>Test isolé de la zone : <code>br-tenet</code> remis dans <code>lab-tenet</code> à chaud → ping toujours <code>0 % de pertes</code>, Zabbix <code>200 OK</code>. La zone fermée ne gêne pas les connexions sortantes de l'hôte.</li>
+<li>Correction durable : adresse déclarée dans NetworkManager — <code>ipv4.method manual</code>, <code>ipv4.addresses 10.10.10.2/24</code>, <code>ipv4.never-default yes</code> (le pont ne devient jamais la route par défaut), <code>ipv6.method disabled</code> ; <code>reapply</code> rejoué volontairement : adresse présente, zone <code>lab-tenet</code>, ping <code>0 % de pertes</code>.</li>
+</ol>
+<h4>Enseignement</h4>
+<p>(1) Un changement « mineur » sur le réseau de l'hôte (zone firewall) a révélé une configuration non déclarée : tout ce qui n'est pas dans l'outil de configuration disparaît au premier rechargement. Règle : aucune configuration réseau à la main sur l'hôte, tout passe par <code>nmcli</code>. (2) Diagnostic par élimination : une hypothèse à la fois, chacune vérifiée par une commande (ports du pont, zone, adresse), sans toucher aux VM. (3) Le service est rétabli d'abord (adresse remise à chaud), la cause est corrigée ensuite (configuration persistante), puis la correction est éprouvée en rejouant le geste qui avait provoqué la panne. (4) Le point de retour <code>PRE-F13-ZONE-LAB</code> existait ; il n'a pas été nécessaire, parce que la cause a été trouvée en moins de dix minutes.</p>
+<h2 id="fiche-fr-inc-11" class="pb">INC-11 — Détection : le manager Wazuh échoue au démarrage, SIEM aveugle pendant 3 h 10 sans alerte</h2><p><strong>Date :</strong> 23-24/10/2026 · <strong>Heures en UTC (journaux du SIEM)</strong>, heure de Paris entre parenthèses<br />
+<strong>Actif concerné :</strong> VM <code>wazuh-siem</code> (<code>10.10.10.40</code>, Ubuntu 26.04.1 LTS, Wazuh 4.14.8) — service <code>wazuh-manager</code> (analyse, API <code>55000</code>, réception des agents <code>1514</code>)<br />
+<strong>Impact :</strong> de 20:17 à 23:27 UTC (22:17 → 01:27), aucun événement des agents n'est analysé et aucune alerte ne peut être levée. L'indexeur et le tableau de bord tournent : l'interface s'affiche, mais indique <em>[API connection] API is down</em>. Aucune supervision ne signale la panne.  </p>
+<h4>Symptôme</h4>
+<p>24/10 à 01:16 (Paris), le tableau de bord Wazuh affiche <em>API is down</em> et <em>Error getting the authorization token</em>.</p>
+<h4>Diagnostic</h4>
+<ol>
+<li>Session de 01:49 : <code>systemctl is-active wazuh-manager wazuh-indexer wazuh-dashboard</code> → <code>active</code> ×3 ; <code>api.log</code> : authentifications <code>wazuh-wui</code> en <code>200</code>. Le service fonctionne dans le démarrage en cours ; la panne est antérieure.</li>
+<li><code>journalctl --list-boots</code> : quatre démarrages le 23/10 (UTC) — <code>-3</code> 20:17:02 → 23:27:20, <code>-2</code> 23:27:24 → 23:28:18, <code>-1</code> 23:28:20 → 23:37:12, <code>0</code> depuis 23:49:41. Le symptôme (23:16-23:21 UTC) tombe dans le démarrage <code>-3</code>.</li>
+<li><code>journalctl -u wazuh-manager -b -3</code> :
+   <code>wazuh-apid: Process 1485 not used by Wazuh, removing...</code> → <code>Killed</code> → <code>wazuh-apid did not start correctly</code> → <code>Failed with result 'exit-code'</code> (20:17:10, après 3,4 s).</li>
+<li><code>journalctl -u wazuh-indexer -b -3</code> : indexeur démarré à 20:17:17, actif jusqu'à 23:27:17. Seul le manager manquait.</li>
+<li>Démarrage <code>-1</code> : manager démarré normalement à 23:28:24 ; le service est revenu avec le redémarrage de la VM de 23:27, pas par une action corrective.</li>
+</ol>
+<h4>Cause racine</h4>
+<p>Un fichier PID resté d'un arrêt non propre désignait, au démarrage suivant, un numéro de processus réattribué à un autre programme. Le script de démarrage de Wazuh a retiré ce processus, l'API n'a pas démarré et le manager entier s'est arrêté en échec. Deux défauts ont transformé cet échec ponctuel en panne de trois heures :</p>
+<ul>
+<li><strong>aucun redémarrage automatique</strong> : l'unité <code>wazuh-manager.service</code> n'a pas de <code>Restart=</code> ; un échec au démarrage reste un échec ;</li>
+<li><strong>personne ne surveille le SIEM</strong> : Prometheus collecte <code>localhost</code> et le contrôleur de domaine, Zabbix le firewall en SNMP ; ni l'API (<code>55000</code>) ni la réception des agents (<code>1514</code>) ne sont contrôlées.</li>
+</ul>
+<h4>Correction</h4>
+<ol>
+<li>Redémarrage automatique (surcharge systemd, sans toucher à l'unité du paquet) :
+   <code>/etc/systemd/system/wazuh-manager.service.d/restart.conf</code> → <code>[Service]</code> <code>Restart=on-failure</code> <code>RestartSec=30</code> ; <code>daemon-reload</code>. Contrôle : <code>systemctl show wazuh-manager -p Restart -p RestartUSec</code> → <code>Restart=on-failure</code>, <code>RestartUSec=30s</code>.</li>
+<li>Supervision du SIEM dans Zabbix : hôte <code>wazuh-siem</code>, deux contrôles <em>Simple check</em> depuis le serveur Zabbix (<code>fedora</code>), toutes les minutes — <code>net.tcp.service[tcp,10.10.10.40,55000]</code> (API) et <code>net.tcp.service[tcp,10.10.10.40,1514]</code> (réception des agents), valeur <code>1</code> au repos. Deux déclencheurs de sévérité <strong>High</strong> : <code>max(…,#3)=0</code>, soit trois échecs consécutifs (un incident ou un redémarrage automatique de 30 s ne déclenche pas de fausse alerte).</li>
+</ol>
+<h4>Test de la détection (24/10, heure de Paris)</h4>
+<ul>
+<li>02:18:50 : <code>systemctl stop wazuh-manager</code> → <code>inactive</code> (arrêt propre : <code>Restart=on-failure</code> ne relance pas, ce qui permet le test) ;</li>
+<li>02:21:13 et 02:21:14 : problèmes <em>SIEM : API Wazuh injoignable (55000)</em> et <em>SIEM : réception des agents arrêtée (1514)</em>, sévérité High, sur le tableau de bord ;</li>
+<li>02:38:12 : <code>systemctl start wazuh-manager</code> → <code>active</code>.
+<strong>Délai de détection : 2 min 23 s</strong>, contre 3 h 10 sans aucune alerte lors de l'incident.</li>
+</ul>
+<h4>Constat associé : accès d'administration au SIEM perdu</h4>
+<p>Le mot de passe du compte <code>ais</code> de <code>wazuh-siem</code> n'était consigné dans aucun gestionnaire de mots de passe. Récupération par la console hors bande (KVM) : démarrage avec <code>rw init=/bin/bash</code>, <code>passwd ais</code>, redémarrage. Piège rencontré : dans ce shell de secours, le clavier est en QWERTY. Le nouveau mot de passe est enregistré dans le gestionnaire.</p>
+<h4>Enseignement</h4>
+<p>(1) Un service de sécurité qui peut échouer au démarrage doit redémarrer seul ; sinon un incident de quelques secondes devient une panne de plusieurs heures. (2) Il faut superviser l'outil de détection lui-même : un SIEM arrêté ne lève aucune alerte, c'est le pire des silences. (3) On lit les journaux du <strong>bon</strong> démarrage : <code>journalctl --list-boots</code> d'abord, puis <code>-b -N</code>. (4) Les comptes d'administration vont dans un gestionnaire de mots de passe dès leur création.</p>
+<h2 id="fiche-fr-f-13" class="pb">F-13 — L&#x27;hyperviseur peut relayer du trafic entre le réseau extérieur et le LAN du labo, hors pfSense</h2><p><strong>Date :</strong> 23-24/10/2026 · <strong>Type :</strong> constat de configuration (audit) · <strong>Gravité :</strong> moyenne à élevée · <strong>Lien :</strong> F-01 (hôte sur le LAN), scénario EBIOS SO-3<br />
+<strong>Actif concerné :</strong> hyperviseur <code>HV01</code> (hôte <code>TeneT</code>, Fedora Linux 44) — interfaces <code>wlo1</code> (réseau extérieur : domicile ou partage de connexion) et <code>br-tenet</code> (pont du LAN <code>10.10.10.0/24</code>, adresse de l'hôte <code>.2</code>), firewall de l'hôte <code>firewalld</code>  </p>
+<h4>Constat</h4>
+<p>Trois conditions réunies, relevées le 23/10 :</p>
+<ol>
+<li>L'hôte route les paquets : <code>net.ipv4.ip_forward = 1</code> (nécessaire au NAT libvirt de <code>virbr0</code>, côté WAN de pfSense).</li>
+<li>L'hôte a une patte dans chaque réseau : <code>10.10.10.0/24</code> sur <code>br-tenet</code> (<code>src 10.10.10.2</code>) et <code>192.168.1.0/24</code> sur <code>wlo1</code> (<code>src 192.168.1.188</code>).</li>
+<li><code>br-tenet</code> et <code>wlo1</code> sont dans la <strong>même zone</strong> firewalld <code>public</code>, dont le transfert intra-zone est actif (<code>firewall-cmd --zone=public --query-forward</code> → <code>yes</code>). La zone ouvre aussi le service <code>ssh</code> de l'hôte au LAN.</li>
+</ol>
+<h4>Risque</h4>
+<p>Une machine du réseau extérieur qui ajoute la route « <code>10.10.10.0/24</code> via l'hôte » peut envoyer des paquets directement dans le LAN du labo, <strong>sans passer par pfSense</strong>, seul point de passage prévu par l'architecture. Les réponses des serveurs repartent par leur passerelle pfSense ; le filtrage à états de pfSense casse en pratique les connexions TCP (routage asymétrique), mais c'est un effet de bord, pas une protection. En sens inverse, toute machine du LAN joint le service SSH de l'hôte (rebond vers l'hyperviseur, F-01).<br />
+Limite de la preuve : constat établi sur la configuration (règles et tables de routage), sans exploitation depuis une seconde machine du réseau domestique.</p>
+<h4>Vérifications avant correction</h4>
+<ul>
+<li><code>lsmod | grep br_netfilter</code> : module non chargé ; <code>net.bridge.bridge-nf-call-iptables</code> absent. Le trafic entre VM sur le pont reste au niveau 2 et ne traverse pas le firewall de l'hôte : changer la zone du pont ne peut pas couper les échanges DC, TrueNAS, fedora.</li>
+<li><code>firewall-cmd --list-all-policies</code> : aucune politique active de transfert entre zones (<code>gateway-*</code> désactivées) ; la zone <code>libvirt</code> (<code>virbr0</code>) est gérée séparément.</li>
+<li><code>ss -tunap</code> sur l'hôte : toutes les connexions sur <code>10.10.10.2</code> sont <strong>sortantes</strong> (navigateur vers Zabbix, Grafana, Prometheus, TrueNAS, pfSense) ; <code>prometheus.yml</code> ne collecte pas l'hôte. Rien dans le labo n'a besoin de joindre l'hôte.</li>
+<li>Point de retour : <code>snapper -c root create -d "PRE-F13-ZONE-LAB"</code> (instantané 188, 24/10 01:10).</li>
+</ul>
+<h4>Correction</h4>
+<p>Zone dédiée au pont du labo, sans service et sans transfert, rattachée par NetworkManager (persistante) :</p>
+<pre><code>firewall-cmd --permanent --new-zone=lab-tenet  
+firewall-cmd --permanent --zone=lab-tenet --remove-forward  
+firewall-cmd --reload  
+nmcli con mod br-tenet connection.zone lab-tenet  
+nmcli dev reapply br-tenet
+
+</code></pre>
+<h4>Preuve</h4>
+<ul>
+<li><code>firewall-cmd --get-active-zones</code> : <code>lab-tenet</code> → <code>br-tenet</code> ; <code>public</code> → <code>wlo1</code> seul.</li>
+<li><code>lab-tenet</code> : <code>target: default</code>, <code>services:</code> vide, <code>forward: no</code> (<code>--query-forward</code> → <code>no</code>).</li>
+<li>Depuis le LAN (VM <code>fedora</code>), 24/10 02:05, hôte joignable (adresse rétablie) : <code>10.10.10.2:22</code> fermé, <code>10.10.10.2:9090</code> fermé ; témoins <code>10.10.10.20:445</code> ouvert, <code>10.10.10.40:55000</code> et <code>:1514</code> ouverts. La zone ferme les services de l'hôte au LAN sans gêner le labo.</li>
+<li>Un premier test (01:11) avait eu lieu pendant INC-10, alors que l'hôte n'avait plus d'adresse sur le LAN ; il n'est pas retenu comme preuve.</li>
+<li>Incident pendant le changement : voir INC-10 (adresse de l'hôte non persistante, révélée par le <code>reapply</code>).</li>
+<li>Après INC-10 : zone <code>lab-tenet</code> active sur <code>br-tenet</code> avec l'adresse <code>10.10.10.2/24</code> déclarée dans NetworkManager ; l'hôte joint toujours le labo (ping <code>0 %</code> de pertes, Zabbix <code>200 OK</code>).</li>
+<li>Point de stabilité : <code>POST-F13-ZONE-LAB-STABLE</code>.</li>
+</ul>
+<h4>Effet sur F-01</h4>
+<p>La jambe « le LAN peut joindre l'hyperviseur » est fermée. Reste l'autre jambe : l'hôte a toujours une adresse dans le LAN et peut l'atteindre (navigateur d'administration). Le traitement complet reste la mesure M-01 (réseau d'administration séparé). Conséquence assumée : l'administration de l'hôte depuis le tunnel WireGuard n'est plus possible ; l'hyperviseur était hors du périmètre de l'accès distant.</p>
+<h4>Enseignement</h4>
+<p>(1) Une zone firewalld par réseau de confiance : deux réseaux de niveaux différents dans la même zone, c'est un pont ouvert. (2) Sur un hyperviseur, <code>ip_forward</code> est souvent obligatoire ; c'est donc le firewall qui doit dire où le transfert est permis. (3) Avant de durcir, on mesure les dépendances (<code>ss</code>, configuration des collecteurs, <code>br_netfilter</code>) : la correction n'a coupé aucun service.</p>
+<h2 id="fiche-fr-f-14" class="pb">F-14 — Disponibilité : la base de vulnérabilités du SIEM échoue à se mettre à jour quand le labo démarre dans le désordre</h2><p><strong>Période :</strong> 03/10 → 11/10/2026 (constat le 24/10) · <strong>Type :</strong> constat (CP8), corrigé (CP9) · <strong>Gravité :</strong> moyenne<br />
+<strong>Actifs concernés :</strong> VM <code>wazuh-siem</code> (module <code>vulnerability-scanner</code>, flux CVE), <code>Win-Server-DC</code> (seul DNS du labo), démarrage des VM sur l'hyperviseur <code>HV01</code>  </p>
+<h4>Constat</h4>
+<p>Le journal de Wazuh, archivé à la rotation dans <code>/var/ossec/logs/wazuh/2026/Oct/ossec-23.log.gz</code> (et non dans <code>ossec.log</code>, vidé à minuit), contient 7 échecs <code>content-updater … Could not resolve hostname</code> (14 lignes : un avertissement et une erreur par échec) entre le 04/10 08:37 et le 11/10 07:59 UTC.</p>
+<h4>Corrélation</h4>
+<p><code>journalctl --list-boots</code> sur le SIEM : chaque échec survient <strong>47 à 48 s après le démarrage de la VM</strong> (04/10, 05/10, 06/10, 07/10 ×2, 10/10, 11/10). Le premier téléchargement du flux part avant que le contrôleur de domaine, son unique serveur DNS, réponde. Les 21 et 23/10, le DC était déjà démarré : aucun échec. Deux démarrages (04/10, 9 h de fonctionnement ; 06/10, 5 h 30) n'ont été suivis d'aucun succès : du 03/10 09:18 au 05/10 18:45 UTC, la base CVE n'a pas été mise à jour, sans aucune alerte.</p>
+<h4>Cause racine</h4>
+<p>Aucun ordre de démarrage : aucune VM n'est en démarrage automatique, elles sont lancées à la main. Ubuntu (SIEM) démarre plus vite que Windows (DC) et dépend de son DNS.</p>
+<h4>Correction</h4>
+<p>Script <code>/usr/local/bin/lab</code> (root:root, 0755, empreinte vérifiée) :</p>
+<ul>
+<li><code>lab start</code> : pfSense, attente de <code>10.10.10.254:443</code> ; DC, attente d'une <strong>vraie</strong> réponse DNS (<code>status: NOERROR</code> et au moins un enregistrement pour <code>infrasec.local</code>) ; puis TrueNAS, fedora, wazuh-siem, wg-client ;</li>
+<li><code>lab stop</code> : arrêt propre ACPI dans l'ordre inverse, sans coupure forcée (supprime aussi la cause d'INC-11, le fichier PID laissé par un arrêt brutal) ;</li>
+<li>chaque étape tracée dans le journal : <code>journalctl -t lab</code>.</li>
+</ul>
+<p>Sur le DC : arrêt accepté depuis l'écran de connexion (<code>shutdownwithoutlogon = 1</code>, bouton d'alimentation = arrêter). Accès réservé à qui a la console de la VM, donc déjà administrateur de l'hyperviseur.</p>
+<h4>Défaut trouvé pendant le test (corrigé)</h4>
+<p>Premier essai : <code>DNS du DC opérationnel (0 s)</code>, deux secondes après le démarrage de Windows. Le test vérifiait seulement que <code>dig</code> écrivait quelque chose, or <code>dig</code> écrit aussi ses messages d'échec. Corrigé (exigence de <code>NOERROR</code> et d'une réponse), vérifié sur trois cas simulés (pas de réponse, SERVFAIL, réponse valide).</p>
+<h4>Preuve (24/10 et 25/10)</h4>
+<ul>
+<li><code>lab start</code> : attente DNS réelle de 35 s, SIEM démarré 20 s après la réponse du DNS (24/10 13:24:46 → 13:25:06 ; même résultat le 25/10).</li>
+<li>SIEM : module démarré à 11:25:20 UTC, <strong>aucune</strong> erreur de résolution au moment où elle survenait auparavant ; flux à jour (<code>Feed update process completed</code>).</li>
+</ul>
+<h4>Point ouvert, suivi dans F-26</h4>
+<p>Le DC a ignoré la demande d'arrêt à trois reprises : 24/10 13:43 (180 s), 26/10 00:20 (180 s, arrêt seul après le délai), 26/10 20:32 (300 s, script modifié). Le script n'a jamais rien forcé. Cause et correction : F-26.</p>
+<h4>Évolution du script (26/10)</h4>
+<p><code>lnx-dc01</code> ajouté à l'ordre (démarré après le DC Windows, avec attente d'une vraie réponse de son DNS) ; attente d'arrêt du DC Windows portée à 300 s. Empreinte <code>825baad6…</code>, copie précédente conservée (24/10). Test d'arrêt : cinq VM arrêtées proprement dans l'ordre (dont <code>lnx-dc01</code> en 5 s), deux refus signalés sans coupure (F-26).</p>
+<h4>Enseignement</h4>
+<p>(1) Une dépendance non déclarée (le DNS) transforme un ordre de démarrage en panne silencieuse. (2) Les journaux tournent : une enquête couvre aussi les archives. (3) Un contrôle de disponibilité doit exiger une vraie réponse, pas une sortie non vide : « 0 s » était le signe que le test ne pouvait pas échouer.</p>
+<h2 id="fiche-fr-f-15" class="pb">F-15 — Le SIEM n&#x27;a aucun firewall local : tous ses services sont ouverts au LAN</h2><p><strong>Date :</strong> 25/10/2026 · <strong>Type :</strong> constat d'audit (CP8), corrigé (CP9) · <strong>Gravité :</strong> moyenne<br />
+<strong>Actif concerné :</strong> VM <code>wazuh-siem</code> (<code>10.10.10.40</code>, Ubuntu 26.04.1 LTS, Wazuh 4.14.8)  </p>
+<h4>Constat</h4>
+<p><code>ufw status</code> → <code>inactive</code>. <code>ss -tlnpu</code> montre sept services en écoute sur toutes les interfaces (<code>0.0.0.0</code> / <code>*</code>) : réception des agents (<code>1514</code>), enrôlement (<code>1515</code>), API (<code>55000</code>), tableau de bord (<code>443</code>), SSH (<code>22</code>), Cockpit (<code>9090</code>) et node-exporter (<code>9100</code>, ajouté le même jour). Seuls l'indexeur (<code>9200</code>) et son port de cluster (<code>9300</code>) écoutent en local. Toute machine du LAN, et le profil administrateur du tunnel WireGuard autorisé vers le LAN, peut donc joindre l'administration du SIEM.</p>
+<h4>Risque</h4>
+<p>Le SIEM est la machine qui détecte les attaques : sa compromission rend le labo aveugle. Exposer son API, son tableau de bord et son SSH à tout le LAN élargit la surface d'attaque sans besoin métier (moindre privilège non appliqué, PSSI art. réseau).</p>
+<h4>Analyse des flux légitimes (avant toute règle)</h4>
+<table>
+<thead>
+<tr>
+<th>Port</th>
+<th>Service</th>
+<th>Besoin réel</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1514, 1515</td>
+<td>agents, enrôlement</td>
+<td>agents du LAN (<code>fedora</code>, <code>dc01</code>, futurs postes)</td>
+</tr>
+<tr>
+<td>55000</td>
+<td>API</td>
+<td>tableau de bord (local) et contrôle Zabbix (<code>10.10.10.30</code>, INC-11)</td>
+</tr>
+<tr>
+<td>443, 22, 9090</td>
+<td>tableau de bord, SSH, Cockpit</td>
+<td>administrateur depuis l'hôte (<code>10.10.10.2</code>)</td>
+</tr>
+<tr>
+<td>9100</td>
+<td>node-exporter</td>
+<td>Prometheus (<code>10.10.10.30</code>)</td>
+</tr>
+<tr>
+<td>9200, 9300</td>
+<td>indexeur</td>
+<td>local seulement (déjà le cas)</td>
+</tr>
+</tbody>
+</table>
+<h4>Correction</h4>
+<p>Point de retour : instantané <code>pre-ufw</code> de la VM. Politique par défaut <code>deny incoming</code> / <code>allow outgoing</code>, sept règles commentées, une par flux légitime, journalisation <code>low</code>, puis <code>ufw enable</code> (l'activation conserve la session SSH ouverte, autorisée par la règle 1). Secours documenté : console KVM puis <code>ufw disable</code>.</p>
+<h4>Preuve (25/10, 12:01-12:02)</h4>
+<ul>
+<li>Depuis <code>fedora</code> (<code>10.10.10.30</code>) : <code>1514</code>, <code>55000</code>, <code>9100</code> ouverts ; <code>22</code>, <code>443</code>, <code>9090</code> fermés.</li>
+<li>Depuis l'hôte (<code>10.10.10.2</code>) : <code>22</code>, <code>443</code>, <code>9090</code> ouverts ; <code>9100</code> fermé.</li>
+<li>Agents <code>fedora</code> et <code>dc01</code> toujours <code>Active</code> (<code>agent_control -l</code>).</li>
+<li>Un premier test lancé depuis le SIEM lui-même affichait tout « ouvert » : la connexion à sa propre adresse passe par la boucle locale, toujours autorisée. Ce test ne pouvait pas échouer ; il n'est pas retenu.</li>
+</ul>
+<h4>Enseignement</h4>
+<p>(1) On liste les flux légitimes avant d'écrire la première règle : chaque port s'ouvre à la seule source qui en a besoin. (2) Un test de filtrage se lance depuis une machine tierce, jamais depuis la cible. (3) On active un firewall à distance avec la règle d'accès d'administration déjà en place et une console de secours.</p>
+<h2 id="fiche-fr-f-16" class="pb">F-16 — Le disque du SIEM n&#x27;est pas supervisé (et une fausse alerte de croissance)</h2><p><strong>Date :</strong> 24-25/10/2026 · <strong>Type :</strong> constat (CP8), corrigé (CP7/CP9) · <strong>Gravité :</strong> moyenne<br />
+<strong>Actif concerné :</strong> VM <code>wazuh-siem</code> (<code>10.10.10.40</code>), disque <code>/dev/vda2</code> (ext4, 40 Go)  </p>
+<h4>Point de départ : une alarme qui était une erreur de mesure</h4>
+<p>Le 24/10, la bannière de connexion affichait 56,1 % d'utilisation et <code>df -h /</code> 60 % treize minutes plus tard ; j'en avais déduit une croissance de 1,6 Go en 13 minutes. Le 25/10, la même paire de valeurs (56,0 % puis 60 %) réapparaît, et deux <code>df</code> à une minute d'intervalle donnent 60 % et 60 %. La bannière est calculée à l'avance et mise en cache ; seul <code>df</code> mesure l'instant. Il n'y avait pas de croissance.</p>
+<h4>Analyse</h4>
+<ul>
+<li><code>du -xh --max-depth=1 /var/ossec/queue</code> : <code>vd</code> = 11 Go (base de vulnérabilités CVE de Wazuh), <code>indexer</code> = 910 Mo, le reste &lt; 200 Mo.</li>
+<li><code>/var/ossec/queue/vd</code> existe depuis le 03/10 ; la taille de la base CVE est normale pour cette version et stable.</li>
+<li>Conclusion : rien à supprimer. Le vrai constat : <strong>personne ne surveille ce disque</strong>. Prometheus collectait <code>fedora</code> et le DC ; Zabbix, le firewall et les ports du SIEM. Un doublement de la base pendant une mise à jour aurait rempli le disque sans alerte, et un SIEM au disque plein cesse d'indexer.</li>
+</ul>
+<h4>Correction</h4>
+<ol>
+<li><code>prometheus-node-exporter</code> installé sur le SIEM ; port <code>9100</code> ouvert <strong>au seul Prometheus</strong> (<code>10.10.10.30</code>) par le firewall local (F-15).</li>
+<li>Cible ajoutée par ajout en fin de fichier à <code>~/prometheus/prometheus.yml</code> sur <code>fedora</code> (copie de sauvegarde datée, fichier monté dans le conteneur, même inode conservé), validée par <code>promtool check config</code> (<code>SUCCESS</code>) avant redémarrage. Les 4 cibles sont <code>up = 1</code>.</li>
+<li>Règle Grafana « Disque presque plein (Linux) », dossier <code>Hybrid-InfraSec</code>, groupe <code>infra</code> (évaluation toutes les 30 s) :
+   <code>100 - 100 * node_filesystem_avail_bytes{mountpoint="/", fstype!~"tmpfs|overlay"} / node_filesystem_size_bytes{…}</code>, seuil <strong>&gt; 80</strong>, attente 5 min, maintien 1 min, <code>severity = warning</code>. Une seule règle couvre tous les serveurs Linux, présents et futurs.<br />
+   La métrique compte l'espace utilisable sans la réserve root d'ext4 (62,1 % contre 60 % dans <code>df</code>) : c'est l'espace dont Wazuh, qui ne tourne pas en root, dispose réellement.</li>
+</ol>
+<h4>Preuve (25/10)</h4>
+<ul>
+<li>Seuil de test à 60 : <code>wazuh-siem</code> (62,1 %) → <em>Firing</em>, <code>fedora</code> (36 %) → <em>Normal</em> ; état de la règle <em>Firing</em>. L'instance était déjà en attente depuis ~13:52 à cause d'une première sauvegarde avec un seuil à 0, d'où un passage rapide à <em>Firing</em>.</li>
+<li>Seuil de production à 80 : les deux instances <em>Normal</em>.</li>
+</ul>
+<h4>Enseignement</h4>
+<p>(1) Avant de conclure à une croissance, on mesure deux fois avec le <strong>même</strong> outil. (2) Ce qui n'est pas supervisé finit par tomber en silence : chaque serveur entre dans la supervision dès sa mise en service. (3) On éprouve une alerte en abaissant son seuil, pas en remplissant un disque de production.</p>
+<h2 id="fiche-fr-f-17" class="pb">F-17 — Navigation web sur le contrôleur de domaine, avec le compte Administrateur intégré</h2><p><strong>Date :</strong> 25/10/2026 · <strong>Type :</strong> constat (CP8), corrigé (CP9) · <strong>Gravité :</strong> élevée<br />
+<strong>Actif :</strong> <code>Win-Server-DC</code> (<code>dc01</code>, <code>infrasec.local</code>)  </p>
+<h4>Constat</h4>
+<p><code>Get-Process</code> et <code>quser</code> sur le DC (20:55) :</p>
+<ul>
+<li>une session console du compte <strong><code>Administrator</code> intégré</strong>, ouverte à 14:57 ;</li>
+<li><strong>15 processus <code>msedge</code></strong> dans cette session, depuis 14:58 (environ 6 h), avec de nouveaux processus à 17:21, 19:26 et 20:54 ; un onglet de messagerie web ouvert ;</li>
+<li>test avant correction (21:01) : <code>https://example.com</code> s'affiche, le DC a un accès web sortant libre.</li>
+</ul>
+<h4>Risque</h4>
+<p>Le navigateur est la première porte d'entrée des attaques (lien piégé, téléchargement à l'insu, pièce jointe). Sur un DC, il s'exécute avec les droits d'administrateur du domaine : une seule page malveillante peut compromettre tout l'annuaire. Deuxième écart : l'usage quotidien du compte <code>Administrator</code> intégré, que le modèle de tiers de la PSSI réserve au secours ; le compte d'administration nominatif est <code>adm.rj</code>.</p>
+<h4>Correction</h4>
+<p>Point de retour : instantané <code>pre-gpo-navigation</code>. Navigateur fermé (<code>Stop-Process msedge</code>). GPO <strong><code>DC - Navigation interdite</code></strong>, liée à la seule OU <code>Domain Controllers</code> :</p>
+<ul>
+<li><code>HKLM\SOFTWARE\Policies\Microsoft\Edge\URLBlocklist\1 = *</code> : tous les sites bloqués ;</li>
+<li><code>StartupBoostEnabled = 0</code> et <code>BackgroundModeEnabled = 0</code> : Edge ne se précharge plus et ne tourne plus en arrière-plan.
+Windows Update n'est pas concerné (il ne passe pas par le navigateur).</li>
+</ul>
+<h4>Preuve (25/10, 21:06-21:07)</h4>
+<ul>
+<li><code>gpresult /r /scope computer</code> : <code>DC - Navigation interdite</code> appliquée.</li>
+<li>Même test qu'avant : <code>https://example.com</code> → <strong>« This page is blocked — Your organization doesn't allow you to view this site »</strong>.</li>
+</ul>
+<h4>Incident pendant la mise en œuvre</h4>
+<p>Premier essai : erreurs <code>GpoWithNameNotFound</code> sur les trois réglages, la ligne de création de la GPO ayant été sautée. <code>gpupdate</code> a ensuite « réussi » sans rien appliquer : un succès d'outil n'est pas un résultat. Le test de navigation l'a montré.</p>
+<h4>Limites et suite</h4>
+<ul>
+<li>Une GPO peut être défaite par un administrateur du domaine. La défense en profondeur serait une règle pfSense interdisant le web sortant au DC.</li>
+<li>Usage du compte <code>Administrator</code> intégré : à remplacer par <code>adm.rj</code> pour l'administration courante ; <code>Administrator</code> passe en compte de secours.</li>
+<li>Le 26/10, une demande de rouvrir le navigateur pour copier des commandes a été écartée au profit de SSH (PV-07).</li>
+</ul>
+<h4>Enseignement</h4>
+<p>(1) Un serveur d'infrastructure n'a pas de navigateur. (2) Un correctif se prouve par le même test qu'avant, rejoué après. (3) Une erreur rouge suivie d'un <code>gpupdate</code> réussi reste un échec.</p>
+<h2 id="fiche-fr-f-18" class="pb">F-18 — Arrêter l&#x27;agent Wazuh du contrôleur de domaine ne déclenche aucune alerte</h2><p><strong>Date :</strong> 25/10/2026 · <strong>Type :</strong> constat (CP8, découvert pendant le scénario F-19), corrigé (CP9) · <strong>Gravité :</strong> élevée<br />
+<strong>Actifs :</strong> <code>Win-Server-DC</code> (agent <code>dc01</code>), <code>wazuh-siem</code><br />
+<strong>Technique correspondante :</strong> MITRE ATT&amp;CK T1562.001 (<em>Impair Defenses : Disable or Modify Tools</em>).  </p>
+<h4>Découverte</h4>
+<p>Pendant la préparation de F-19, un <code>Restart-Service WazuhSvc</code> a expiré (« Cannot stop WazuhSvc ») : l'arrêt a eu lieu, le redémarrage jamais. Journal de l'agent : <code>Received exit signal</code> 19:23:48, <code>Exit completed successfully</code> 19:24:21. Le DC est resté <strong>sans surveillance environ 9 minutes</strong>, et le fichier de test déposé pendant ce temps (19:24:47) n'a produit aucun événement.</p>
+<h4>Ce que le SIEM a vu</h4>
+<ul>
+<li>Tableau de bord des agents : <code>Disconnected (1)</code>, visible seulement si quelqu'un le regarde.</li>
+<li>Alertes : règle <strong>506</strong> <em>Wazuh agent stopped</em>, <strong>niveau 3</strong>, à 19:22:22 et 19:24:21. Pas de 504 : l'arrêt était propre, l'agent l'a annoncé lui-même.</li>
+<li>Niveau 3 sur un seuil de 10 : <strong>aucune alerte</strong>.</li>
+</ul>
+<h4>Correction</h4>
+<p>Règle locale <strong>100310</strong>, niveau <strong>10</strong>, enfant de 506, MITRE T1562.001, dans <code>local_rules.xml</code> (sauvegarde <code>.bak-20261025b</code>, validation <code>wazuh-analysisd -t</code>). Elle couvre tous les agents. Un redémarrage planifié la déclenchera aussi : c'est voulu.</p>
+<h4>Preuve (25/10)</h4>
+<ul>
+<li><code>sc.exe stop WazuhSvc</code> (<code>STATE: 1 STOPPED</code>), redémarrage 45 s plus tard → <code>Running</code>.</li>
+<li>Alerte <strong>100310, niveau 10, agent <code>dc01</code>, 18:52:35.508 UTC</strong>.</li>
+</ul>
+<h4>Limite connue</h4>
+<p>Un arrêt brutal (coupure de la VM, processus tué) n'envoie pas de 506 : le manager passe l'agent en <em>disconnected</em> (règle 504), qui reste au niveau 3.</p>
+<h4>Enseignement</h4>
+<p>(1) Un capteur de sécurité qu'on peut couper sans alerte ne protège rien. (2) Un incident pendant un test est une donnée, pas un contretemps.</p>
+<h2 id="fiche-fr-f-19" class="pb">F-19 — Persistance par le dossier de démarrage : détectée, mais sous le seuil d&#x27;alerte</h2><p><strong>Date :</strong> 25/10/2026 · <strong>Type :</strong> scénario d'attaque (CP10), constat puis correction (CP9) · <strong>Gravité :</strong> élevée<br />
+<strong>Actifs :</strong> <code>Win-Server-DC</code> (agent <code>dc01</code>), <code>wazuh-siem</code> (Wazuh 4.14.8)<br />
+<strong>Technique simulée :</strong> MITRE ATT&amp;CK T1547.001 — un fichier déposé dans <code>C:\ProgramData\Microsoft\Windows\Start Menu\Programs\StartUp</code> s'exécute à chaque ouverture de session, pour tous les utilisateurs.  </p>
+<h4>Mise en place de la surveillance</h4>
+<p>Configuration centralisée sur le manager (<code>/var/ossec/etc/shared/default/agent.conf</code>, sauvegarde <code>.bak-20261025</code>, validée par <code>verify-agent-conf</code>) : surveillance FIM du dossier en mode <strong>whodata</strong> (temps réel + identité de l'auteur). L'agent l'a reçue et redémarré seul : <code>real-time Whodata engine started</code> (19:22:35).</p>
+<h4>Constat 1 : le tableau de bord ne montrait rien</h4>
+<p>Recherche <code>syscheck.path:*StartUp*</code> vide, deux fois. Lecture du journal brut sur le SIEM (<code>grep -i maj.bat /var/ossec/logs/alerts/alerts.json</code>) : l'événement existait. Wazuh enregistre les chemins Windows <strong>en minuscules</strong> et le joker de la requête est sensible à la casse.</p>
+<h4>Constat 2 : détecté, mais personne n'est alerté</h4>
+<p>Alerte du 25/10 18:43:16.671 UTC (fichier créé à 18:43:15) : règle <strong>554</strong> <em>File added to the system</em>, <strong>niveau 5</strong>, aucune étiquette MITRE ; whodata : utilisateur <code>Administrator</code>, processus <code>powershell.exe</code> (PID 7660), SHA-256 <code>c97a25b5…</code>. Le seuil d'alerte du labo est 10.</p>
+<h4>Correction</h4>
+<p>Règle locale <strong>100300</strong>, niveau <strong>12</strong>, enfant de 550 et 554, champ <code>file</code> filtré par <code>(?i)\\start menu\\programs\\startup\\</code> (insensible à la casse), MITRE T1547.001.</p>
+<h4>Preuve (25/10)</h4>
+<p>Fichier <code>maj.bat</code> créé à 18:52:00 UTC → alerte <strong>100300, niveau 12, agent <code>dc01</code>, 18:52:01.582 UTC</strong> : délai de détection <strong>1,6 s</strong>. Fichier de test supprimé ensuite (<code>Test-Path</code> → <code>False</code>).</p>
+<h4>Enseignement</h4>
+<p>(1) Voir un événement ne suffit pas : il doit atteindre le niveau qui déclenche une alerte. (2) Quand l'interface ne montre rien, on lit le journal brut. (3) Sur Windows, une règle qui filtre un chemin doit ignorer la casse.</p>
+<h2 id="fiche-fr-f-20" class="pb">F-20 — L&#x27;audit des partages ne voyait que les connexions, pas les fichiers</h2><p><strong>Date :</strong> 25/10/2026 · <strong>Type :</strong> constat (CP8, découvert pendant PV-06), corrigé (CP9) · <strong>Gravité :</strong> moyenne<br />
+<strong>Actif :</strong> <code>truenas</code> (<code>10.10.10.20</code>), partages SMB  </p>
+<h4>Constat</h4>
+<p>Pendant l'enquête de PV-06, le journal d'audit SMB de TrueNAS ne contenait que 19 lignes, toutes de type <code>Authentication</code>. Aucune lecture, écriture ni suppression de fichier n'était enregistrée : la colonne <em>Audit Logging</em> des partages valait <code>No</code>. On savait qui s'était connecté, jamais ce qu'il avait fait.</p>
+<h4>Correction</h4>
+<p>Audit activé sur les cinq partages de l'entreprise (<code>Commun</code>, <code>Comptabilite</code>, <code>Direction</code>, <code>Projets</code>, <code>RH</code>) : <em>Enable Logging</em>, liste de surveillance <code>INFRASEC\domain users</code>, liste d'exclusion vide (administrateurs compris). L'ancien partage <code>partage</code>, oublié au premier passage, a été activé le 26/10 : les 6 partages affichent <code>Yes</code>.</p>
+<h4>Preuve (25/10, 20:20-20:21 heure de Paris)</h4>
+<p>Depuis <code>fedora</code>, compte <code>k.haddad</code> : dépôt puis suppression de <code>audit-test.txt</code> sur <code>Projets</code>, tentative sur <code>RH</code>. Lecture par l'API (<code>midclt call audit.query</code>, filtré avec <code>jq</code>) :</p>
+<table>
+<thead>
+<tr>
+<th>UTC</th>
+<th>Événement</th>
+<th>Objet</th>
+<th>Résultat</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>19:20:38</td>
+<td>AUTHENTICATION</td>
+<td>–</td>
+<td><code>NT_STATUS_WRONG_PASSWORD</code> (faute de frappe)</td>
+</tr>
+<tr>
+<td>19:20:55</td>
+<td>AUTHENTICATION / CONNECT</td>
+<td><code>10.10.10.30</code></td>
+<td>SUCCESS</td>
+</tr>
+<tr>
+<td>19:20:55</td>
+<td>CREATE / WRITE / CLOSE</td>
+<td><code>audit-test.txt</code> (11 octets écrits)</td>
+<td>SUCCESS</td>
+</tr>
+<tr>
+<td>19:20:55</td>
+<td>CREATE / <strong>UNLINK</strong> / CLOSE</td>
+<td><code>audit-test.txt</code></td>
+<td>SUCCESS</td>
+</tr>
+<tr>
+<td>19:21:12</td>
+<td>AUTHENTICATION / CONNECT / DISCONNECT</td>
+<td><code>10.10.10.30</code></td>
+<td>SUCCESS</td>
+</tr>
+</tbody>
+</table>
+<p>L'API impose une limite de lignes par requête (<code>EINVAL</code> sans <code>limit</code>) : protection contre l'extraction massive du journal.</p>
+<h4>Limite constatée</h4>
+<p>Le refus de lister <code>RH</code> n'est pas enregistré comme un échec. La trace existe de façon indirecte : <code>CONNECT</code> puis <code>DISCONNECT</code> avec <code>"service":"RH"</code>, et le bilan de session <code>create 0, read 0, write 0</code>. Une connexion d'un compte hors service sur RH est en soi un signal à surveiller.</p>
+<h4>Enseignement</h4>
+<p>(1) « Audit activé » ne veut rien dire tant qu'on n'a pas vérifié ce qui est enregistré. (2) Une piste d'audit répond à : qui, quoi, quand, depuis où. (3) Quand l'interface filtre mal, l'API donne la même donnée.</p>
+<h2 id="fiche-fr-f-21" class="pb">F-21 — Journaux du SIEM : aucune durée de conservation, et 9 jours sur 10 jamais scellés</h2><p><strong>Date :</strong> 25-26/10/2026 · <strong>Type :</strong> constat (CP8), corrigé (CP7/CP9) · <strong>Gravité :</strong> moyenne<br />
+<strong>Actif :</strong> <code>wazuh-siem</code> (<code>10.10.10.40</code>, Wazuh 4.14.8, disque 40 Go, horloge en UTC)  </p>
+<h4>Mesure avant décision</h4>
+<table>
+<thead>
+<tr>
+<th>Emplacement</th>
+<th>Volume</th>
+<th>Rôle</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>/var/ossec/logs/alerts</code></td>
+<td>115 Mo</td>
+<td>copie brute des alertes (preuve)</td>
+</tr>
+<tr>
+<td><code>/var/ossec/logs/archives</code></td>
+<td>20 Ko</td>
+<td>vide : <code>logall</code> désactivé</td>
+</tr>
+<tr>
+<td>indexeur (<code>wazuh-alerts-4.x-*</code>)</td>
+<td>11 index, ~19 000 alertes, ~48 Mo</td>
+<td>copie consultable</td>
+</tr>
+<tr>
+<td>disque <code>/</code></td>
+<td>22 Go sur 40 (60 %)</td>
+<td>dont 11 Go de base CVE (F-16)</td>
+</tr>
+</tbody>
+</table>
+<p>Volume moyen : ~8 Mo bruts par jour, ~113 Ko compressés ; ~4,4 Mo par jour dans l'indexeur.</p>
+<h4>Constat 1 : rien n'est jamais supprimé</h4>
+<p>Ni Wazuh ni l'indexeur n'ont de durée de conservation. À 95 % de disque, l'indexeur passe ses index en lecture seule : le SIEM devient aveugle.</p>
+<h4>Constat 2 : les journaux ne sont pas scellés</h4>
+<p>Wazuh compresse et scelle chaque journal (fichier <code>.sum</code>) à minuit. Sur les 10 jours terminés, un seul l'était : le 23, seule nuit où le labo est resté allumé. Le labo est éteint la nuit, donc la rotation de minuit ne s'exécute jamais. Sans sceau, rien ne prouve qu'un journal n'a pas été modifié après coup.</p>
+<h4>Décision de conservation</h4>
+<ul>
+<li>Copie consultable (indexeur) : <strong>90 jours</strong>, ~400 Mo.</li>
+<li>Copie brute scellée : <strong>365 jours</strong>, ~100 Mo compressés.</li>
+<li>Ordre des seuils : alerte Grafana à 80 % (F-16) <strong>avant</strong> le premier seuil de l'indexeur (85 %) et son blocage (95 %).</li>
+</ul>
+<h4>Correction</h4>
+<ol>
+<li>Politique ISM <code>infrasec-retention-90j</code> : suppression à 90 jours, gabarit pour les futurs index, rattachée aux 11 index existants (<code>updated_indices: 11, failures: false</code>). Appels avec le <strong>certificat d'administration</strong> de l'indexeur, vérification TLS complète (le certificat ne couvre que <code>127.0.0.1</code>).</li>
+<li>Script <code>/usr/local/sbin/wazuh-sceller-journaux</code> (root:root, 0755) : pour chaque jour terminé, compression puis empreinte SHA-256 dans un fichier <code>.sha256</code> ; suppression des copies de plus de 365 jours ; traces <code>journalctl -t wazuh-sceller</code>. Testé d'abord sur une arborescence factice.</li>
+<li>Service systemd durci (<code>ProtectSystem=strict</code>, écriture limitée à <code>/var/ossec/logs/alerts</code>, <code>NoNewPrivileges</code>) et minuteur quotidien à 00:30 UTC, <strong><code>Persistent=true</code></strong>.</li>
+</ol>
+<h4>Preuve (25/10, 19:40 UTC)</h4>
+<ul>
+<li>Aperçu : exactement les 18 fichiers attendus (jours 03 à 24), jour en cours exclu.</li>
+<li>Exécution : <code>status=0/SUCCESS</code>, 18 lignes <code>scelle :</code>.</li>
+<li><code>sha256sum -c *.sha256</code> → <strong>18 × OK</strong> ; fichiers <code>wazuh:wazuh</code>, mode <code>640</code>, dates d'origine conservées.</li>
+</ul>
+<h4>Preuve du rattrapage (26/10)</h4>
+<p>SIEM éteint dans la nuit du 25 au 26. Au démarrage du labo (18:53 heure de Paris), dernière exécution à 17:53:18 UTC, et scellement du 25/10 : <code>ossec-alerts-25.log.gz</code> (<code>135d0eb5…</code>) à 17:53:35, <code>ossec-alerts-25.json.gz</code> (<code>fc1fd2c9…</code>) à 17:53:36 UTC.</p>
+<h4>Limite connue</h4>
+<p>Les empreintes sont sur la même machine que les journaux : root sur le SIEM pourrait modifier les deux. Pour une valeur probante complète, les empreintes doivent partir ailleurs.</p>
+<h4>Enseignement</h4>
+<p>(1) Une durée de conservation se décide à partir de mesures. (2) Une tâche « à minuit » n'existe pas sur une machine éteinte la nuit : <code>Persistent=true</code>. (3) Un journal non scellé ne prouve rien.</p>
+<h2 id="fiche-fr-f-22" class="pb">F-22 — Les secrets d&#x27;installation du SIEM traînaient en clair sur le SIEM</h2><p><strong>Date :</strong> 25/10/2026 · <strong>Type :</strong> constat (CP8, découvert pendant F-21), corrigé (CP9) · <strong>Gravité :</strong> élevée<br />
+<strong>Actifs :</strong> <code>wazuh-siem</code>, hôte <code>HV01</code>  </p>
+<h4>Constat</h4>
+<p>Dans le dossier du compte <code>ais</code> : <code>wazuh-install-files.tar</code> (root, 600, du 03/10), laissé par l'installeur. Contenu (noms seulement) : <code>wazuh-passwords.txt</code> (mots de passe en clair), les clés privées du serveur, de l'indexeur, du tableau de bord, du certificat d'administration, et <strong><code>root-ca.key</code></strong>, clé privée de l'autorité qui a signé tous les certificats du SIEM.</p>
+<h4>Pourquoi ne pas simplement le supprimer</h4>
+<p>La clé de l'autorité sert à renouveler un certificat ou ajouter un nœud. La détruire aurait créé un problème de disponibilité ; la garder en clair, un problème de confidentialité. Réponse : la conserver <strong>chiffrée, hors du SIEM</strong>.</p>
+<h4>Correction</h4>
+<ol>
+<li>Mots de passe relevés une fois et enregistrés dans le gestionnaire de mots de passe.</li>
+<li>Chiffrement AES-256 (<code>gpg --symmetric --cipher-algo AES256</code>), phrase de passe dans le gestionnaire.</li>
+<li>Contrôle : le déchiffrement redonne exactement l'original (SHA-256 <code>84d479f9…</code> des deux côtés).</li>
+<li>Copie vers l'hôte (<code>~/coffre</code>, dossier 700, fichier 600) ; empreinte du fichier chiffré identique des deux côtés (<code>a34d743c…</code>), déchiffrement réussi sur l'hôte.</li>
+<li>Destruction sur le SIEM : <code>shred -u</code> de l'original puis de la copie chiffrée.</li>
+</ol>
+<h4>Incidents pendant l'opération</h4>
+<ul>
+<li>Premier déchiffrement en échec (phrase mal saisie) : empreinte <code>e3b0c442…</code>, celle d'une entrée <strong>vide</strong>. C'est la comparaison des empreintes qui prouve, pas l'absence d'erreur.</li>
+<li>La copie « vers l'hôte » a d'abord été lancée depuis la session SSH du SIEM : le SIEM s'est copié le fichier à lui-même. Repéré à l'invite <code>ais@wazuh-siem</code>, vérifié, refait depuis l'hôte.</li>
+</ul>
+<h4>Complément (26/10)</h4>
+<p>Le coffre contient aussi l'export XML de la configuration pfSense (<code>config-fw01.infrasec.lab-20261026212439.xml</code>, 600).</p>
+<h4>Reste à faire</h4>
+<p>Copie de <code>~/coffre</code> sur le disque externe chiffré du plan de sauvegarde.</p>
+<h4>Enseignement</h4>
+<p>(1) L'inventaire après installation fait partie de l'installation. (2) Un secret indispensable se chiffre et se range ailleurs. (3) Avant chaque commande sensible, on lit l'invite.</p>
+<h2 id="fiche-fr-f-23" class="pb">F-23 — L&#x27;hyperviseur manquait de mémoire : 29 Gio alloués sur 30, l&#x27;hôte utilisait son swap</h2><p><strong>Date :</strong> 25/10/2026 · <strong>Type :</strong> constat (CP8, mesure de capacité avant un nouveau service), corrigé (CP7) · <strong>Gravité :</strong> moyenne<br />
+<strong>Actif :</strong> hôte <code>HV01</code> (Fedora, 30 Gio de RAM, 8 Gio de swap, disque LUKS 952 Go dont 425 libres)  </p>
+<h4>Constat (21:09)</h4>
+<p><code>free -h</code> : 26 Gio utilisés sur 30, <strong>4,0 Gio de swap utilisés</strong>, 4,0 Gio disponibles. Mémoire allouée : DC 6 + TrueNAS 6 + SIEM 6 + fedora 6 + pfSense 4 + wg-client 1 = <strong>29 Gio</strong>.</p>
+<p><strong>Mesure par VM</strong> (<code>virsh dommemstat</code>)</p>
+<table>
+<thead>
+<tr>
+<th>VM</th>
+<th>Allouée</th>
+<th>Occupée (rss)</th>
+<th>Libre dans l'invité</th>
+<th>Décision</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>pfSense</td>
+<td>4,0</td>
+<td>3,1</td>
+<td>(pas de pilote)</td>
+<td>2 Go</td>
+</tr>
+<tr>
+<td>DC</td>
+<td>6,0</td>
+<td>6,0</td>
+<td>3,3</td>
+<td>4 Go</td>
+</tr>
+<tr>
+<td>TrueNAS</td>
+<td>6,0</td>
+<td>2,4</td>
+<td>4,0</td>
+<td>inchangé (cache ZFS)</td>
+</tr>
+<tr>
+<td>fedora</td>
+<td>6,0</td>
+<td>3,4</td>
+<td>2,2</td>
+<td>inchangé</td>
+</tr>
+<tr>
+<td>wazuh-siem</td>
+<td>6,0</td>
+<td>4,8</td>
+<td><strong>0,9</strong></td>
+<td>inchangé : la plus juste</td>
+</tr>
+<tr>
+<td>wg-client</td>
+<td>1,0</td>
+<td>0,5</td>
+<td>0,5</td>
+<td>inchangé</td>
+</tr>
+</tbody>
+</table>
+<h4>Correction</h4>
+<p>Arrêt ordonné (<code>lab stop</code>), <code>virsh setmem</code> puis <code>setmaxmem --config</code>, vérification <code>dominfo</code>, redémarrage ordonné.</p>
+<h4>Preuve (21:25)</h4>
+<table>
+<thead>
+<tr>
+<th></th>
+<th>Avant</th>
+<th>Après</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Mémoire allouée aux VM</td>
+<td>29 Gio</td>
+<td><strong>25 Gio</strong></td>
+</tr>
+<tr>
+<td>RAM utilisée sur l'hôte</td>
+<td>26 Gio</td>
+<td><strong>22 Gio</strong></td>
+</tr>
+<tr>
+<td>Disponible</td>
+<td>4,0 Gio</td>
+<td><strong>8,6 Gio</strong></td>
+</tr>
+<tr>
+<td>Swap utilisé</td>
+<td>4,0 Gio</td>
+<td><strong>1,4 Gio</strong></td>
+</tr>
+</tbody>
+</table>
+<p>La VM Samba (1,5 Gio) tient désormais sans priver le SIEM.</p>
+<h4>Enseignement</h4>
+<p>(1) La capacité se mesure avant d'ajouter un service. (2) On réduit d'après la consommation réelle, VM par VM. (3) Un swap actif sur un hyperviseur est une alerte.</p>
+<h2 id="fiche-fr-f-24" class="pb">F-24 — Mots de passe : aucun verrouillage dans les deux domaines, puis un verrouillage sans alerte</h2><p><strong>Date :</strong> 25-26/10/2026 · <strong>Type :</strong> constat (CP8), corrigé (CP9) et scénario de détection (CP10) · <strong>Gravité :</strong> élevée<br />
+<strong>Actifs :</strong> <code>Win-Server-DC</code> (<code>infrasec.local</code>), <code>lnx-dc01</code> (<code>infrasec.internal</code>), <code>wazuh-siem</code><br />
+<strong>Technique correspondante :</strong> MITRE ATT&amp;CK T1110 (<em>Brute Force</em>), y compris sa forme lente.  </p>
+<h4>Constat 1 : la PSSI n'était pas appliquée par les domaines</h4>
+<p>Windows et Samba avaient les mêmes valeurs par défaut : 7 caractères minimum, <strong>aucun seuil de verrouillage</strong>, 42 jours. La PSSI exige 14 caractères (20 pour les comptes à privilèges). Les comptes existants la respectaient parce que le script avait généré leurs mots de passe, pas parce que le domaine l'imposait.</p>
+<h4>Correction 1 (26/10)</h4>
+<p>Instantanés <code>pre-politique-mdp-26oct</code> des deux contrôleurs. Même politique dans les deux domaines :</p>
+<table>
+<thead>
+<tr>
+<th></th>
+<th>Comptes ordinaires</th>
+<th>Administrateurs (PSO-Admins, Admins du domaine)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Longueur minimale</td>
+<td>14</td>
+<td>20</td>
+</tr>
+<tr>
+<td>Verrouillage</td>
+<td>après 10 échecs, 15 min</td>
+<td>après 5 échecs, 30 min</td>
+</tr>
+<tr>
+<td>Durée de vie</td>
+<td>365 jours</td>
+<td>180 jours</td>
+</tr>
+</tbody>
+</table>
+<p>Groupe Windows désigné par son SID (<code>-512</code>). Contrôles : <code>Get-ADUserResultantPasswordPolicy adm.rj</code> → <code>PSO-Admins</code> (20, 5) ; <code>pso show-user administrator</code> côté Samba → <code>PSO-Admins</code>.</p>
+<h4>Preuve du verrouillage (19:25 heure de Paris)</h4>
+<p>Depuis <code>fedora</code>, 11 connexions SMB avec un mot de passe faux pour <code>k.haddad</code> : 10 × <code>NT_STATUS_LOGON_FAILURE</code>, puis <code>NT_STATUS_ACCOUNT_LOCKED_OUT</code>. Événement 4740 sur le DC : <code>Caller Computer Name: FEDORA</code>.</p>
+<h4>Constat 2 : le verrouillage lui-même ne déclenche pas d'alerte</h4>
+<p>SIEM (UTC) : chaque échec en règle 60122 (niveau 5) ; 18:25:44, <strong>60204</strong> <em>Multiple Windows Logon Failures</em> (niveau 10) ; 18:25:48, <strong>60115</strong> <em>User account locked out</em> au <strong>niveau 9</strong>. La 60204 ne se déclenche que pour des échecs rapprochés : un attaquant lent verrouille quand même les comptes, sans alerte (déni de service).</p>
+<h4>Correction 2</h4>
+<p>Règle locale <strong>100320</strong>, niveau <strong>10</strong>, enfant de 60115, MITRE T1110 (sauvegarde <code>.bak-20261026</code>, validation <code>wazuh-analysisd -t</code>).</p>
+<h4>Preuve par une attaque lente (19:39-19:49)</h4>
+<p>10 échecs comptés entre 18:40:56 et 18:49:09 UTC (environ 37 s d'écart). <strong>Aucune 60204</strong> ; <strong>100320, niveau 10, à 18:49:09.212 UTC</strong>, au moment du verrouillage. Compte ensuite déverrouillé (<code>LockedOut : False</code>, <code>badPwdCount : 0</code>).</p>
+<h4>Enseignement</h4>
+<p>(1) Une politique écrite n'est appliquée que si le système l'impose. (2) Un seuil de verrouillage crée un risque de déni de service : le verrouillage doit lui-même alerter. (3) On teste aussi l'attaque lente.</p>
+<h2 id="fiche-fr-f-25" class="pb">F-25 — Le contrôleur Samba n&#x27;avait aucun pare-feu</h2><p><strong>Date :</strong> 26/10/2026 · <strong>Type :</strong> constat (CP8), corrigé (CP9) · <strong>Gravité :</strong> moyenne<br />
+<strong>Actif :</strong> <code>lnx-dc01</code> (<code>10.10.10.11</code>, Debian 13.7, Samba AD <code>infrasec.internal</code>)  </p>
+<h4>Constat</h4>
+<p><code>ufw</code> absent, <code>nft list ruleset</code> vide. <code>ss -tulpn</code> : SSH et tous les services de l'annuaire en écoute sur toutes les interfaces, IPv4 et IPv6 — 53, 88, 464, 135, 137-139, 389, 445, 636, 3268, 3269, 49152-49154. Même défaut que le SIEM (F-15).</p>
+<h4>Analyse des flux légitimes</h4>
+<table>
+<thead>
+<tr>
+<th>Ports</th>
+<th>Service</th>
+<th>Décision</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>22/tcp</td>
+<td>SSH</td>
+<td>hôte <code>10.10.10.2</code> seulement</td>
+</tr>
+<tr>
+<td>53, 88, 389, 464 (tcp et udp) ; 135, 445, 636, 3268, 3269 (tcp)</td>
+<td>annuaire</td>
+<td>LAN <code>10.10.10.0/24</code></td>
+</tr>
+<tr>
+<td>49152-65535/tcp</td>
+<td>RPC dynamique</td>
+<td>LAN</td>
+</tr>
+<tr>
+<td>137, 138, 139</td>
+<td>NetBIOS</td>
+<td>fermés</td>
+</tr>
+</tbody>
+</table>
+<h4>Correction</h4>
+<p>Point de retour : instantané <code>post-politique-mdp-stable</code>. <code>ufw</code> : refus par défaut en entrée, journalisation <code>low</code>, quatre règles commentées, vérifiées par <code>ufw show added</code> avant activation (règle SSH en tête).</p>
+<h4>Preuve (26/10, 19:59)</h4>
+<ul>
+<li>Depuis <code>fedora</code> : 22 et 139 <strong>fermés</strong> ; 389, 445, 88 <strong>ouverts</strong> ; DNS <code>lnx-dc01.infrasec.internal</code> → <code>10.10.10.11</code>.</li>
+<li>Depuis l'hôte : 22 <strong>ouvert</strong>.</li>
+</ul>
+<h4>Enseignement</h4>
+<p>(1) Toute nouvelle machine entre avec son pare-feu. (2) On ferme ce dont on n'a pas besoin (NetBIOS).</p>
+<h2 id="fiche-fr-f-26" class="pb">F-26 — Deux machines ignorent la demande d&#x27;arrêt de l&#x27;hyperviseur</h2><p><strong>Date :</strong> 26/10/2026 · <strong>Type :</strong> constat (CP8, révélé par le test du script <code>lab</code>), correction engagée (CP7) · <strong>Gravité :</strong> moyenne<br />
+<strong>Actifs :</strong> <code>Win-Server-DC</code>, <code>wg-client</code> (Fedora 44 Cloud Edition), hôte <code>HV01</code>  </p>
+<h4>Constat</h4>
+<p><code>sudo lab stop</code> (20:29-20:38) : cinq machines arrêtées proprement et dans l'ordre. Deux refus, signalés par le script sans coupure forcée :</p>
+<ul>
+<li><code>wg-client</code> : <code>ÉCHEC … après 180 s</code> ;</li>
+<li><code>Win-Server-DC</code> : <code>ÉCHEC … après 300 s</code> (troisième refus, voir F-14), alors qu'aucune session SSH n'était ouverte.
+<code>virsh qemu-agent-command … guest-ping</code> → <code>QEMU guest agent is not configured</code> sur les deux : l'arrêt ne peut passer que par le bouton d'alimentation simulé (ACPI).</li>
+</ul>
+<h4>Diagnostic</h4>
+<ul>
+<li><strong>Win-Server-DC</strong> : console = écran de verrouillage, aucune boîte de dialogue. Arrêt réussi depuis Windows lui-même. Conclusion : l'arrêt piloté par le système fonctionne ; seul le signal ACPI est ignoré. Hypothèse retenue : session console <code>Administrator</code> restée ouverte derrière le verrouillage (Windows refuse alors un arrêt par le bouton d'alimentation).</li>
+<li><strong>wg-client</strong> : console = invite <code>localhost login:</code>, aucune session ouverte, aucun serveur SSH. Signal ACPI (<code>virsh shutdown</code>) puis touche <code>KEY_POWER</code> (<code>virsh send-key</code>) : aucune réaction, toujours <code>running</code>. Image Cloud allégée : aucun signal d'arrêt externe n'est traité.</li>
+</ul>
+<h4>Mesure immédiate</h4>
+<p><code>wg-client</code> : vidage du cache disque (<code>virsh send-key … KEY_LEFTALT KEY_SYSRQ KEY_S</code>), puis <code>virsh destroy</code>. Coupure justifiée et tracée : machine sans service ni donnée métier, disque synchronisé, tous les moyens d'arrêt propre essayés auparavant.</p>
+<h4>Correction</h4>
+<ol>
+<li>Canal de l'agent invité QEMU ajouté aux deux définitions (<code>virt-xml … --add-device --channel unix,target.type=virtio,target.name=org.qemu.guest_agent.0</code>).</li>
+<li>Windows : agent installé depuis <code>virtio-win.iso</code> (<code>E:\guest-agent\qemu-ga-x86_64.msi</code>, installation silencieuse) → service <code>QEMU-GA</code> <code>Running</code>, <code>Automatic</code>. <code>wg-client</code> : agent déjà présent dans l'image Fedora Cloud.</li>
+<li><code>guest-ping</code> → <code>{"return":{}}</code> sur les deux.</li>
+<li>Script <code>lab</code> (empreinte <code>98df9b18…</code>, copie précédente conservée) : arrêt par l'agent invité quand il répond (<code>virsh shutdown --mode agent</code>), ACPI sinon.</li>
+</ol>
+<h4>Preuve (26/10, 21:25-21:26)</h4>
+<p><code>sudo lab stop</code> : <strong>7 machines sur 7 arrêtées proprement, en 66 s, sans aucun échec ni coupure</strong> — <code>wg-client</code> 5 s, <code>wazuh-siem</code> 5 s (ACPI), <code>fedora</code> 15 s, <code>truenas</code> 5 s, <code>lnx-dc01</code> 5 s, <strong><code>Win-Server-DC</code> 10 s</strong> (contre trois refus en 180-300 s), <code>pfsense-fw</code> 20 s (ACPI). Le script a choisi seul la méthode : agent pour 5 machines, ACPI pour les 2 qui n'en ont pas.</p>
+<h4>Enseignement</h4>
+<p>(1) Un script qui ne force rien rend visibles les machines qui ne s'arrêtent pas : son refus est une information. (2) Un arrêt « propre » depuis l'hyperviseur suppose un canal que l'invité écoute réellement : on le vérifie, on ne le suppose pas. (3) Une coupure forcée n'est acceptable qu'en dernier recours, justifiée et tracée.</p>
+<h2 id="fiche-fr-pv-05" class="pb">PV-05 — Entreprise INFRASEC : annuaire, partages par service et contrôle d&#x27;accès (AGDLP)</h2><p><strong>Date :</strong> 25/10/2026 · <strong>Compétences :</strong> CP9 (politique de sécurité appliquée : RBAC, moindre privilège, tiering), CP8 (mesure par test)<br />
+<strong>Actifs :</strong> <code>Win-Server-DC</code> (<code>infrasec.local</code>), <code>truenas</code> (<code>10.10.10.20</code>, pool <code>tank</code> en miroir), client de test <code>fedora</code> (<code>10.10.10.30</code>)  </p>
+<h4>1. Annuaire</h4>
+<p>Script PowerShell idempotent <code>New-InfrasecCompany.ps1</code> (empreinte SHA-256 vérifiée à l'arrivée sur le DC : <code>1E6E9C76…</code>, CSV <code>7228C38A…</code>), lancé d'abord en simulation (<code>-WhatIf</code>), précédé de l'instantané <code>pre-entreprise-ad</code>.</p>
+<ul>
+<li>14 OU, 27 groupes : 7 <code>GG_</code> (6 services + télétravail), 10 <code>DL_SMB_&lt;partage&gt;_RW/RO</code>, 8 <code>ROLE_</code> (matrice RBAC de la PSSI art. 5.2) ; 10 objets ordinateurs.</li>
+<li>12 comptes : 10 collaborateurs (mots de passe aléatoires de 24 caractères, changement imposé à la première connexion, jamais affichés), <code>adm.rj</code> (compte d'administration séparé, 32 caractères, seul membre ajouté aux Admins du domaine), <code>aud.externe</code> (désactivé hors mission d'audit).</li>
+<li>Contrôle indépendant après exécution : 12 comptes, <code>aud.externe</code> <code>Enabled = False</code>, Admins du domaine = <code>Administrator</code> + <code>adm.rj</code> (pas <code>rj</code>), <code>DL_SMB_Projets_RW</code> = <code>GG_Consultants</code> + <code>GG_Commercial</code>, 10 postes.</li>
+<li>Détection : le SIEM a reçu les 12 événements Windows <strong>4720</strong> de <code>dc01</code> (règle Wazuh 60109, niveau 8, MITRE T1098), tous entre 15:49:26.931 et 15:49:28.270. Constat pour CP10 : le niveau 8 est sous le seuil d'alerte (≥ 10).</li>
+<li>Politique de mots de passe éprouvée : un mot de passe de 7 caractères est refusé par le domaine (<code>ADPasswordComplexityException</code>).</li>
+</ul>
+<h4>2. Partages TrueNAS</h4>
+<p>TrueNAS joint au domaine (<code>HEALTHY</code>), les 10 groupes <code>INFRASEC\dl_smb_*</code> visibles (GID 100001120 → 100001129).</p>
+<ul>
+<li>Dataset parent <code>tank/entreprise</code>, non partagé. <strong>Constat corrigé :</strong> le préréglage SMB donnait <code>INFRASEC\domain users</code> et <code>builtin_users</code> en <strong>Modify</strong>, donc les 12 comptes du domaine en écriture partout. ACL ramenée à : <code>owner@</code> et administrateurs (Full Control), <code>domain users</code> en <strong>Traverse sans héritage</strong> (passer, ne pas lire).</li>
+<li>Cinq datasets enfants partagés en SMB : Commun, Direction, Comptabilite, RH, Projets. ACL de chacun : <code>DL_SMB_&lt;partage&gt;_RW</code> → Modify, <code>DL_SMB_&lt;partage&gt;_RO</code> → lecture (Read Data, Read Attributes, Read Named Attributes, Read ACL, Execute, Synchronize), administrateurs → Full Control. Aucun accès général.</li>
+<li>Le validateur de TrueNAS signale que les groupes <code>DL_</code> n'ont pas le droit de traverser le parent : il évalue chaque groupe seul, sans tenir compte de <code>Domain Users</code>. L'avertissement est compris ; l'accès réel est prouvé par le test ci-dessous.</li>
+</ul>
+<h4>3. Test d'accès (25/10, 17:36-17:37, <code>smbclient</code> depuis <code>fedora</code>)</h4>
+<table>
+<thead>
+<tr>
+<th>#</th>
+<th>Compte (service)</th>
+<th>Partage</th>
+<th>Action</th>
+<th>Attendu</th>
+<th>Obtenu</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td>k.haddad (Commercial)</td>
+<td>Projets</td>
+<td>écriture</td>
+<td>OK</td>
+<td>OK (<code>k.haddad.txt</code>)</td>
+</tr>
+<tr>
+<td>2</td>
+<td>k.haddad (Commercial)</td>
+<td>RH</td>
+<td>lecture</td>
+<td>refus</td>
+<td><code>NT_STATUS_ACCESS_DENIED listing</code></td>
+</tr>
+<tr>
+<td>3</td>
+<td>n.rousseau (RH)</td>
+<td>RH</td>
+<td>écriture</td>
+<td>OK</td>
+<td>OK (<code>rousseau.txt</code>)</td>
+</tr>
+<tr>
+<td>4</td>
+<td>c.morel (Direction)</td>
+<td>RH</td>
+<td>lecture</td>
+<td>OK</td>
+<td>OK (voit <code>rousseau.txt</code>)</td>
+</tr>
+<tr>
+<td>5</td>
+<td>c.morel (Direction)</td>
+<td>RH</td>
+<td>écriture</td>
+<td>refus</td>
+<td><code>NT_STATUS_ACCESS_DENIED opening remote file</code></td>
+</tr>
+<tr>
+<td>6</td>
+<td>k.haddad (Commercial)</td>
+<td>Commun</td>
+<td>écriture</td>
+<td>OK</td>
+<td>OK (<code>commun.txt</code>)</td>
+</tr>
+</tbody>
+</table>
+<p>6 résultats sur 6 conformes, dont 2 refus attendus. Un premier essai (<code>NT_STATUS_LOGON_FAILURE</code>) venait d'une faute de saisie du mot de passe ; il n'est pas retenu.</p>
+<h4>Enseignement</h4>
+<p>(1) Un préréglage n'est pas une politique : celui de TrueNAS ouvrait tout le domaine en écriture. (2) AGDLP sépare qui sont les gens (<code>GG_</code>) de ce qu'ils peuvent faire (<code>DL_</code>) : un nouvel arrivant ne demande qu'un ajout de groupe, jamais une ACL. (3) Un contrôle d'accès se prouve par des refus autant que par des succès.</p>
+<h2 id="fiche-fr-pv-06" class="pb">PV-06 — Sauvegarde éprouvée : restauration d&#x27;un fichier supprimé par un utilisateur</h2><p><strong>Date :</strong> 25/10/2026 · <strong>Compétences :</strong> CP7 (disponibilité, sauvegarde), CP8 (mesure par test)<br />
+<strong>Actifs :</strong> <code>truenas</code> (<code>tank/entreprise</code>, miroir), client <code>fedora</code>, compte <code>k.haddad</code>  </p>
+<h4>Dispositif</h4>
+<p>Tâche d'instantanés sur <code>tank/entreprise</code>, récursive, toutes les heures, conservation 2 semaines, instantanés vides désactivés. Vérification en ligne de commande : <code>zfs list -t snapshot -r tank/entreprise</code> → un instantané <code>auto-2026-10-25_18-00</code> par dataset. Horloge de TrueNAS contrôlée (<code>date</code> / <code>date -u</code>).</p>
+<h4>Lecture d'un faux doute</h4>
+<p>L'interface indiquait « dernière exécution : il y a 1 heure » alors que le seul instantané datait de 18:00 : la tâche a tourné à 19:00 sans rien créer, rien n'ayant changé.</p>
+<h4>Scénario : un utilisateur supprime un fichier par erreur</h4>
+<ol>
+<li>20:04:06, depuis <code>fedora</code>, en tant que <code>k.haddad</code> : <code>del commun.txt</code> → fichier absent.</li>
+<li>Sur TrueNAS : fichier intact dans <code>.zfs/snapshot/auto-2026-10-25_18-00/</code> ; copie vers le partage.</li>
+<li>20:05, <code>k.haddad</code> relit le fichier (<code>test</code>, 5 octets).
+Délai de restauration : environ <strong>1 minute</strong>, sans perte.</li>
+</ol>
+<h4>Défaut observé</h4>
+<p>La copie restaure contenu et droits, <strong>pas le propriétaire</strong> (<code>root</code> au lieu de <code>INFRASEC\k.haddad</code>). Correction : <code>chown</code>. Amélioration : « versions précédentes » de Windows par SMB.</p>
+<h4>Une modification inexpliquée, élucidée par les journaux</h4>
+<p>Le fichier portait une date de modification de 19:59:34. Audit SMB : entre 17:37:54 et 20:04:06, seulement des <strong>échecs</strong> d'authentification de <code>k.haddad</code>. Journal de sudo : <code>truenas_admin</code> a lancé la copie de restauration à 19:59:34, avant que la suppression ait réussi. Retracé à la seconde par deux journaux indépendants.</p>
+<h4>Incident de préparation</h4>
+<p>Trois connexions refusées (<code>NT_STATUS_LOGON_FAILURE</code>) : mot de passe réinitialisé par erreur plus tôt. Arrêt avant verrouillage, contrôle <code>badPwdCount</code>, réinitialisation masquée.</p>
+<h4>Enseignement</h4>
+<p>(1) Une sauvegarde n'existe qu'une fois restaurée, du point de vue de l'utilisateur. (2) Restaurer, c'est aussi restaurer les métadonnées.</p>
+<h2 id="fiche-fr-pv-07" class="pb">PV-07 — Administration du contrôleur de domaine en SSH, limitée à l&#x27;hyperviseur</h2><p><strong>Date :</strong> 25-26/10/2026 · <strong>Compétences :</strong> CP9, réponse à la remarque du jury sur l'usage de l'interface graphique<br />
+<strong>Actif :</strong> <code>Win-Server-DC</code> (<code>dc01</code>, Windows Server 2025, <code>10.10.10.10</code>)  </p>
+<h4>Besoin</h4>
+<p>La console graphique de la VM ne permet pas le copier-coller et altère la saisie (virgules transformées en points), source d'erreurs répétées. Rouvrir le navigateur du DC a été écarté : cela annulait F-17.</p>
+<h4>Mise en œuvre</h4>
+<ul>
+<li>OpenSSH Server, déjà présent dans Windows Server 2025 : <code>Start-Service sshd</code>, démarrage automatique.</li>
+<li>Règle <code>OpenSSH-Server-In-TCP</code> restreinte à la source <code>10.10.10.2</code>.</li>
+<li>PowerShell défini comme shell SSH par défaut (<code>HKLM:\SOFTWARE\OpenSSH\DefaultShell</code>).</li>
+</ul>
+<h4>Défaut trouvé pendant le test</h4>
+<p><code>Connection timed out</code> : la règle était attachée au profil <strong>Private</strong> ; un DC est en profil <strong>Domain</strong>. Correction : <code>-Profile Domain</code>. Un <em>timeout</em> signale un pare-feu qui jette ; un refus répond <code>Connection refused</code>.</p>
+<h4>Preuve (26/10)</h4>
+<ul>
+<li>Depuis l'hôte : <code>ssh -l 'INFRASEC\Administrator' 10.10.10.10</code> → invite <code>infrasec\administrator@DC01</code>.</li>
+<li>Port 22 <strong>ouvert</strong> depuis l'hôte, <strong>fermé</strong> depuis <code>fedora</code>.</li>
+<li>Un premier test lancé par erreur dans la session SSH du DC affichait « FERME » : Windows n'a pas <code>bash</code>, la branche <code>|| echo FERME</code> s'exécutait. Ce test ne pouvait pas échouer ; non retenu.</li>
+</ul>
+<h4>Durcissement (26/10, 21:31-21:43) : <code>adm.rj</code> par clé uniquement</h4>
+<ul>
+<li>Clé ED25519 générée sur l'hôte (<code>~/.ssh/id_ed25519_admrj</code>, 100 tours de dérivation, protégée par phrase de passe) ; empreinte <code>SHA256:… (masquée / redacted)</code>.</li>
+<li>Clé publique dans <code>C:\ProgramData\ssh\administrators_authorized_keys</code> (fichier lu par OpenSSH pour les membres d'Administrators), droits réduits à <code>Administrators</code> et <code>SYSTEM</code> (<code>icacls /inheritance:r</code>).</li>
+<li><code>sshd_config</code> (sauvegarde <code>.bak-20261026</code>) : <code>PasswordAuthentication no</code>, <code>AllowUsers infrasec\adm.rj</code> ; syntaxe validée par <code>sshd -t</code> avant redémarrage ; session <code>Administrator</code> gardée ouverte en secours pendant le changement.</li>
+<li>Tests depuis l'hôte : <code>adm.rj</code> par clé → <code>infrasec\adm.rj</code>, membre de <code>Domain Admins</code> (accepté) ; <code>adm.rj</code> par mot de passe → <code>Permission denied</code> ; <code>Administrator</code> → <code>Permission denied (publickey,keyboard-interactive)</code>, sans demande de mot de passe.
+Le compte <code>Administrator</code> intégré redevient un compte de secours, accessible seulement par la console (tiering, F-17).</li>
+</ul>
+<h4>Enseignement</h4>
+<p>(1) Une contrainte d'outil ne justifie pas de défaire une mesure de sécurité. (2) Sous Windows, une règle de pare-feu vaut pour un profil réseau.</p>
+<h2 id="fiche-fr-pv-08" class="pb">PV-08 — Domaine Linux de continuité `infrasec.internal` : entreprise, détection et résolution croisée</h2><p><strong>Date :</strong> 25-26/10/2026 · <strong>Compétences :</strong> CP7 (continuité), CP9 (politique appliquée), CP8 (mesure par test)<br />
+<strong>Actifs :</strong> <code>lnx-dc01</code> (<code>10.10.10.11</code>, Debian 13.7, Samba 4.22), <code>Win-Server-DC</code>, <code>pfsense-fw</code>, <code>wazuh-siem</code>  </p>
+<h4>1. Agent Wazuh</h4>
+<p>Dépôt officiel signé (clé GPG), version <strong>4.14.8-1 identique au manager</strong> (un agent plus récent que le manager est refusé), bloquée par <code>apt-mark hold</code>. Enrôlement : ID 003 <code>Pending</code>, puis <code>Active</code> 30 s plus tard (premier message reçu sur 1514). Les deux contrôleurs de domaine sont désormais supervisés.</p>
+<h4>2. Entreprise INFRASEC</h4>
+<p>Script <code>infrasec-samba-societe.sh</code> (bash, <code>samba-tool</code>), équivalent de <code>New-InfrasecCompany.ps1</code>, à partir du <strong>même</strong> <code>employes.csv</code>. Intégrité vérifiée à l'arrivée : CSV <code>7228c38a…</code> (identique à celui du DC Windows), script <code>e120caac…</code>. Mots de passe aléatoires (<code>--random-password</code>), jamais saisis ni affichés ; changement imposé à la première connexion.</p>
+<ul>
+<li>Simulation (<code>--dry-run</code>) avant exécution.</li>
+<li>Contrôle indépendant : 15 comptes (12 de l'entreprise + <code>Administrator</code>, <code>Guest</code>, <code>krbtgt</code>) ; Admins du domaine = <code>Administrator</code> et <code>adm.rj</code> ; <code>aud.externe</code> <code>userAccountControl: 514</code> (désactivé) ; <code>GG_Consultants</code> = <code>t.girard</code>, <code>i.lambert</code>, <code>h.mercier</code>.</li>
+<li><strong>Idempotence prouvée</strong> : seconde exécution → une seule ligne <code>=== terminé</code>, rien de recréé.</li>
+<li>Défaut corrigé avant exécution : des tests <code>[[ … ]] &amp;&amp; action</code> en fin de boucle auraient arrêté le script sous <code>set -e</code> (<code>pipefail</code>) dès le premier salarié non télétravailleur ; remplacés par des <code>if</code>.</li>
+</ul>
+<h4>3. Résolution DNS entre les deux domaines</h4>
+<p>Avant : <code>dig @10.10.10.10 lnx-dc01.infrasec.internal</code> → rien ; depuis <code>lnx-dc01</code>, <code>_ldap._tcp.infrasec.local has no SRV record</code>.</p>
+<ul>
+<li>Windows → Samba : zone de redirection conditionnelle <code>infrasec.internal</code> → <code>10.10.10.11</code> sur le DC. Premier test en <code>SERVER FAILURE</code> ; diagnostic maillon par maillon : Samba interrogé directement depuis le DC → répond <code>10.10.10.11</code> ; port 53 → <code>TcpTestSucceeded : True</code> ; cache DNS vidé → la redirection répond. Cause : un échec mis en cache à la seconde de création de la zone.</li>
+<li>
+<p>Samba → Windows : redirection de domaine sur pfSense (<em>Domain Override</em> <code>infrasec.local</code> → <code>10.10.10.10</code>) plutôt que dans Samba : Samba envoie déjà tout ce qu'il ne connaît pas à pfSense, la règle est donc unique pour tout le labo.
+Après (26/10, 20:16-20:22) :</p>
+</li>
+<li>
+<p>depuis l'hôte, via le DC Windows : <code>lnx-dc01.infrasec.internal</code> → <code>10.10.10.11</code> ;</p>
+</li>
+<li>depuis <code>lnx-dc01</code> : <code>dc01.infrasec.local has address 10.10.10.10</code> ; <code>_ldap._tcp.infrasec.local has SRV record 0 100 389 dc01.infrasec.local.</code></li>
+</ul>
+<h4>Enseignement</h4>
+<p>(1) Un même fichier source, vérifié par son empreinte, garantit que deux annuaires décrivent la même entreprise. (2) Un script d'administration se rejoue : l'idempotence se prouve en le relançant. (3) Devant une panne, on teste chaque maillon séparément avant d'accuser un composant.</p>
+<h2 id="fiche-fr-pv-09" class="pb">PV-09 — Sauvegarde du labo : `lab-backup`, niveau local immuable</h2><p><strong>Date :</strong> 26/10/2026 · <strong>Compétences :</strong> CP7 (sauvegarde, continuité), CP9 (protection des sauvegardes)<br />
+<strong>Actifs :</strong> hôte <code>HV01</code> (disque LUKS + BTRFS), 7 VM, coffre <code>~/coffre</code>  </p>
+<h4>Besoin et contrainte</h4>
+<p>Aucune sauvegarde complète du labo n'existait hors des instantanés internes des VM. Pas de disque externe disponible. Repartitionner le disque de l'hôte (LUKS + BTRFS) a été écarté : réduire la partition chiffrée est l'opération la plus risquée possible sur ce disque.</p>
+<h4>Préparation : ménage et inventaire</h4>
+<ul>
+<li><code>/vm/iso</code> : 12 fichiers inutiles supprimés (ISO Windows client, doublons, CoreOS, Parrot, image Cloud), noms exacts, sans joker, après vérification des disques branchés sur chaque VM (<code>virsh domblklist</code>) : 74 Go → 19 Go, 7 images conservées (une par VM à reconstruire, plus <code>virtio-win</code>).</li>
+<li>Découverte : <code>wg-client</code> est rangé hors de <code>/vm</code>, dans <code>/var/lib/libvirt/images</code>, et dépend d'une image de base (<code>wg-client-base.qcow2</code>, <code>qemu-img info -U</code>). Sans cet inventaire, la sauvegarde l'aurait oublié ou rendu inutilisable.</li>
+<li><code>/vm</code> est un sous-volume BTRFS (ID 259) ; <code>/vm/images</code> est sans copy-on-write (attribut <code>C</code>), ce qui n'empêche pas les instantanés.</li>
+</ul>
+<h4>Conception</h4>
+<p>Script <code>/usr/local/bin/lab-backup</code> (root:root 0755, empreinte <code>5ed4dcb1…</code>) :</p>
+<ol>
+<li>arrêt ordonné (<code>lab stop</code>) ; annulation et redémarrage si une VM refuse de s'arrêter ;</li>
+<li>instantané BTRFS <strong>en lecture seule</strong> du sous-volume <code>/vm</code> ;</li>
+<li>sous-volume annexe : <code>wg-client</code> et son image de base, définitions des 7 VM et listes de leurs instantanés, coffre (secrets chiffrés, export pfSense), scripts <code>lab</code> et <code>lab-backup</code> ; puis passage <strong>en lecture seule</strong> ;</li>
+<li>empreinte SHA-256 de chaque fichier ; dépôt <code>/srv/lab-backup</code> réservé à root (700) ;</li>
+<li>redémarrage ordonné (<code>lab start</code>) ; rétention : 4 sauvegardes.
+Commande <code>export /dev/sdX</code> prête : copie de la dernière sauvegarde sur disque USB chiffré LUKS2, refus de tout disque non USB.</li>
+</ol>
+<h4>Preuve (26/10, 21:56-22:05)</h4>
+<ul>
+<li>Arrêt des 7 VM en 67 s, sans échec (agent invité pour 5, ACPI pour 2).</li>
+<li>Empreintes : 20 fichiers annexes + 9 disques de VM (21:57 → 22:02).</li>
+<li>Redémarrage ordonné, DNS des deux contrôleurs opérationnels ; sauvegarde <code>20261026-2156</code> terminée à 22:04:58. Interruption totale du labo : 9 minutes.</li>
+</ul>
+<h4>Contrôles après coup (22:06-22:12)</h4>
+<ul>
+<li><code>lab-backup list</code> → <code>20261026-2156  disques:ro=true  annexe:ro=true</code> : les deux parties sont immuables.</li>
+<li><code>lab-backup verify</code> → <code>intégrité : OK</code> (recalcul complet des empreintes en 5 min 30 s).</li>
+<li>Test d'écriture par root : <code>touch /srv/lab-backup/20261026-2156-vm/test</code> → <code>Read-only file system</code>.</li>
+</ul>
+<h4>Limite assumée</h4>
+<p>Niveau local seulement : protège contre la fausse manipulation, la corruption et un rançongiciel (lecture seule), pas contre la panne ou le vol du disque de l'hôte. Le niveau externe (<code>lab-backup export</code>) attend un disque USB.</p>
+<h4>Enseignement</h4>
+<p>(1) Une sauvegarde commence par un inventaire : ce qu'on ne sait pas exister, on ne le sauvegarde pas. (2) Une sauvegarde qu'on peut modifier peut être chiffrée par un rançongiciel : lecture seule. (3) On dit précisément contre quoi une sauvegarde protège, et contre quoi elle ne protège pas.</p>
+<h2 id="fiche-fr-proc-01" class="pb">PROC-01 — Procédure de migration de l&#x27;annuaire vers `infrasec.internal`</h2><p><strong>Déclencheur :</strong> fin de l'évaluation de Windows Server 2025 (vers le 27/03/2027 ; dernier réarmement possible, échéance au plus tard vers 09/2027), ou perte définitive du contrôleur <code>dc01</code>.<br />
+<strong>Objectif :</strong> que les salariés retrouvent comptes, groupes et accès aux partages sur le domaine Samba, sans perte de données ni de traçabilité.<br />
+<strong>État de départ (26/10/2026) :</strong> domaine <code>infrasec.internal</code> en service, même entreprise (même <code>employes.csv</code>, empreinte <code>7228c38a…</code>), même politique de mots de passe, agent Wazuh actif, résolution DNS croisée en place (PV-08).  </p>
+<h4>Registre des risques</h4>
+<table>
+<thead>
+<tr>
+<th>Risque</th>
+<th>Probabilité</th>
+<th>Impact</th>
+<th>Mesure</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Expiration de l'évaluation Windows : arrêts horaires puis indisponibilité de l'annuaire</td>
+<td>certaine (date connue)</td>
+<td>élevé : authentification, partages, GPO</td>
+<td>domaine de continuité prêt ; bascule planifiée au moins 1 mois avant</td>
+</tr>
+<tr>
+<td>Divergence entre les deux annuaires (comptes créés d'un seul côté)</td>
+<td>moyenne</td>
+<td>moyen</td>
+<td>une seule source : <code>employes.csv</code>, rejoué des deux côtés (scripts idempotents)</td>
+</tr>
+<tr>
+<td>Perte des GPO lors de la bascule (Samba ne reprend pas les GPO Windows)</td>
+<td>certaine</td>
+<td>moyen</td>
+<td>GPO critiques recensées (F-17 navigation, politique de mots de passe) et recréées côté Samba ou portées par le pare-feu</td>
+</tr>
+<tr>
+<td>Droits des partages TrueNAS liés aux SID de <code>INFRASEC</code></td>
+<td>certaine</td>
+<td>élevé</td>
+<td>jonction de TrueNAS au nouveau domaine et réapplication des ACL par groupes <code>DL_</code> (AGDLP : seule la liaison groupe → ACL change)</td>
+</tr>
+</tbody>
+</table>
+<h4>Étapes</h4>
+<ol>
+<li><strong>J-30 — Préparer.</strong> Instantanés de toutes les VM ; export de la configuration pfSense ; <code>samba-tool dbcheck</code> sans erreur ; relecture de la liste des GPO Windows à reproduire.</li>
+<li><strong>J-30 — Aligner les annuaires.</strong> Rejouer <code>infrasec-samba-societe.sh employes.csv</code> (idempotent) ; comparer les deux listes de comptes et de membres de groupes (<code>Get-ADUser</code> / <code>samba-tool user list</code>) ; écarts = 0.</li>
+<li><strong>J-15 — Créer les groupes de partage.</strong> Créer les 10 <code>DL_SMB_&lt;partage&gt;_RW/RO</code> dans Samba avec les mêmes membres <code>GG_</code> que sous Windows (matrice de PV-05).</li>
+<li><strong>J-7 — Basculer TrueNAS.</strong> Quitter le domaine <code>INFRASEC</code>, joindre <code>INFRALNX</code> ; réappliquer sur chaque partage les ACL des <code>DL_</code> (Modify / lecture) ; vérifier l'héritage depuis <code>tank/entreprise</code>.</li>
+<li><strong>J-7 — Recetter.</strong> Rejouer le test d'accès de PV-05 (6 cas, dont 2 refus) avec les comptes du nouveau domaine ; rejouer le scénario de verrouillage de F-24 ; vérifier l'arrivée des événements dans Wazuh (agent 003).</li>
+<li><strong>J0 — Basculer les services.</strong> DNS des machines du LAN vers <code>10.10.10.11</code> ; mots de passe des salariés initialisés (<code>samba-tool user setpassword</code>, saisie masquée) et changement imposé ; <code>dc01</code> arrêté mais conservé (pas supprimé) 30 jours.</li>
+<li><strong>J+30 — Clôturer.</strong> Supprimer la redirection <code>infrasec.local</code> de pfSense et la zone conditionnelle ; archiver le dernier instantané de <code>dc01</code> ; mettre à jour la PSSI (annuaire de référence) et les fiches d'architecture.</li>
+</ol>
+<p><strong>Retour arrière</strong> : jusqu'à J+30, <code>dc01</code> est redémarrable ; restauration de TrueNAS sur l'instantané de J-7 et retour des DNS du LAN vers <code>10.10.10.10</code>.</p>
+<p><strong>Critère de réussite :</strong> les 6 cas de PV-05 donnent le résultat attendu sur le nouveau domaine, et une connexion échouée y produit l'alerte Wazuh correspondante.</p></article></main>
+<footer>© 2026 RJ · Tous droits réservés · Projet en lecture seule, conseils bienvenus dans Discussions · <a href="https://github.com/0x1void/hybrid-infrasec/discussions">Discussions</a></footer></body></html>

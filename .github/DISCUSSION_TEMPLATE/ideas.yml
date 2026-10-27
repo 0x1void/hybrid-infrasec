@@ -1,0 +1,33 @@
+title: "[Advice / Conseil] "
+labels: []
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for taking the time to give advice on this project. Merci de prendre le temps de me conseiller.
+        The project is complete and read-only: advice helps me for the next one. Le projet est terminé : vos conseils m'aident pour le suivant.
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area / Domaine
+      options:
+        - Network architecture / Architecture réseau
+        - Security (CCP3) / Sécurité (CCP3)
+        - Monitoring / Supervision
+        - Documentation / Documentation
+        - Career, recruitment / Carrière, recrutement
+        - Other / Autre
+    validations:
+      required: true
+  - type: textarea
+    id: advice
+    attributes:
+      label: Your advice / Votre conseil
+      description: What would you do differently, and why? Que feriez-vous autrement, et pourquoi ?
+    validations:
+      required: true
+  - type: input
+    id: role
+    attributes:
+      label: Your role (optional) / Votre métier (facultatif)
+      placeholder: e.g. SOC analyst, cloud engineer, recruiter

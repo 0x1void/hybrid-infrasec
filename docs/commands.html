@@ -1,0 +1,478 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Commands · Hybrid InfraSec</title><meta name="robots" content="index,follow"><link rel="stylesheet" href="assets/site.css"></head>
+<body class=""><svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs><marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ahd"/></marker><marker id="ahs" viewBox="0 0 10 10" refX="1" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ahd"/></marker><pattern id="hatch" width="8" height="8" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><line x1="0" y1="0" x2="0" y2="8" class="hatch"/></pattern></defs></svg>
+<header class="top"><div class="bar"><a class="brand" href="index.html"><span class="lambda">λ</span> hybrid-infrasec</a>
+<button class="menu" aria-expanded="false" aria-controls="nav" onclick="document.body.classList.toggle('navopen');this.setAttribute('aria-expanded',document.body.classList.contains('navopen'))">☰</button>
+<a class="lang" href="fr/commands.html">Français</a><a class="advice" href="https://github.com/0x1void/hybrid-infrasec/discussions" rel="noopener">Give advice</a></div>
+<nav id="nav"><a href="index.html">Home</a><a href="presentation.html">Presentation</a><a href="architecture.html">Architecture</a><a href="intro.html">The project</a><a href="ccp1.html">CCP1 · Foundation</a><a href="ccp2.html">CCP2 · Evolution</a><a href="ccp3.html">CCP3 · Cybersecurity</a><a href="sheets.html">Incident sheets</a><a href="commands.html" aria-current="page">Commands</a><a href="annexes.html">Annexes</a><a href="glossary.html">Glossary</a><a href="fr/revision.html">Revision (FR)</a></nav></header>
+<main class=""><article><div class="lead"><span class="k">How to read this page</span>Every command used to build the lab, from A to Z, then the commands that prove it works. Each block says which machine it runs on. No secret appears: every sensitive input is typed at a masked prompt.</div><h1>Build commands, A to Z</h1><p>This booklet gathers the commands that built the lab, in the order I ran them, from the host to the last service. The jury advised me to bring them together: they let another administrator rebuild the infrastructure without having followed the project. Steps done in a web interface are given as menu paths.</p>
+<p><strong>Where to type.</strong> Each block names the machine: <strong>HV01</strong> (hypervisor terminal), <strong>pfSense</strong> (web interface or console, option 8), <strong>DC</strong> (administrator PowerShell, over SSH from HV01), <strong>lnx-dc01</strong>, <strong>TrueNAS</strong> (System → Shell), <strong>fedora</strong> (<code>ssh ais@10.10.10.30</code>), <strong>SIEM</strong> (<code>ssh ais@10.10.10.40</code>), <strong>wg-client</strong> (Cockpit serial console).</p>
+<p><strong>Three rules kept throughout.</strong> A snapshot before every change. No secret in a command or a file: every sensitive input is masked (<code>Read-Host -AsSecureString</code>, interactive prompts). A word in angle brackets (<code>&lt;vm&gt;</code>, <code>&lt;UUID&gt;</code>) is to be replaced.</p>
+<h2>A · Host HV01: packages, services, storage</h2>
+<p><strong>HV01</strong> — virtualisation, container and tooling packages:</p>
+<pre><code class="language-bash">sudo dnf upgrade --refresh -y
+sudo dnf install -y qemu-kvm libvirt libvirt-daemon-config-network virt-install \
+  edk2-ovmf swtpm libosinfo guestfs-tools \
+  cockpit cockpit-machines cockpit-podman cockpit-storaged cockpit-selinux \
+  podman buildah skopeo policycoreutils-python-utils setroubleshoot-server \
+  snapper btrfs-progs wireguard-tools nmap tcpdump bind-utils
+</code></pre>
+<p><strong>HV01</strong> — modular libvirt daemons, Cockpit, firewall:</p>
+<pre><code class="language-bash">for d in virtqemud virtnetworkd virtstoraged virtinterfaced virtnodedevd; do
+  sudo systemctl enable --now ${d}.socket
+done
+sudo systemctl enable --now virtlogd.socket cockpit.socket firewalld
+sudo usermod -aG libvirt,kvm &quot;$USER&quot;
+</code></pre>
+<p><strong>HV01</strong> — BTRFS subvolumes without copy-on-write for VM disks and container layers:</p>
+<pre><code class="language-bash">sudo btrfs subvolume create /vm
+sudo btrfs subvolume create /var/lib/containers
+sudo chattr +C /vm /var/lib/containers
+lsattr -d /vm /var/lib/containers            # attribute C expected
+# /etc/fstab
+# UUID=&lt;UUID&gt;  /vm                  btrfs  subvol=vm,nodatacow,noatime 0 0
+# UUID=&lt;UUID&gt;  /var/lib/containers  btrfs  subvol=var/lib/containers,nodatacow,noatime 0 0
+sudo systemctl daemon-reload &amp;&amp; sudo mount -a &amp;&amp; findmnt -t btrfs
+</code></pre>
+<p><strong>HV01</strong> — SELinux (never disabled) and the <code>tenet</code> storage pool:</p>
+<pre><code class="language-bash">sudo mkdir -p /vm/images /vm/iso
+sudo semanage fcontext -a -t virt_image_t '/vm/images(/.*)?'
+sudo restorecon -Rv /vm/images
+sudo chmod 711 /vm/images
+ls -dZ /vm/images                            # system_u:object_r:virt_image_t:s0
+sudo virsh pool-define-as tenet dir --target /vm/images
+sudo virsh pool-build tenet &amp;&amp; sudo virsh pool-start tenet &amp;&amp; sudo virsh pool-autostart tenet
+</code></pre>
+<p><strong>HV01</strong> — host snapshots with Snapper:</p>
+<pre><code class="language-bash">sudo snapper -c root create-config /
+sudo snapper -c root set-config NUMBER_LIMIT=10 NUMBER_LIMIT_IMPORTANT=5
+sudo systemctl enable --now snapper-timeline.timer snapper-cleanup.timer
+sudo snapper -c root create -d &quot;POST-SOCLE-FEDORA-TENET-STABLE&quot;
+</code></pre>
+<h2>B · Host HV01: networks and filtering</h2>
+<p><strong>HV01</strong> — <code>default</code> NAT network (pfSense WAN) and isolated bridge <code>br-tenet</code> (LAN), declared in NetworkManager so they survive any reload (INC-10):</p>
+<pre><code class="language-bash">sudo virsh net-start default &amp;&amp; sudo virsh net-autostart default
+sudo nmcli con add type bridge ifname br-tenet con-name br-tenet \
+  ipv4.method manual ipv4.addresses 10.10.10.2/24 ipv4.never-default yes ipv6.method disabled
+cat &gt; tenet.xml &lt;&lt;'EOF'
+&lt;network&gt;&lt;name&gt;tenet&lt;/name&gt;&lt;forward mode='bridge'/&gt;&lt;bridge name='br-tenet'/&gt;&lt;/network&gt;
+EOF
+sudo virsh net-define tenet.xml &amp;&amp; sudo virsh net-start tenet &amp;&amp; sudo virsh net-autostart tenet
+</code></pre>
+<p><strong>HV01</strong> — dedicated firewalld zone for the bridge, with no service and no forwarding (F-13):</p>
+<pre><code class="language-bash">sudo snapper -c root create -d &quot;PRE-F13-ZONE-LAB&quot;
+sudo firewall-cmd --permanent --new-zone=lab-tenet
+sudo firewall-cmd --permanent --zone=lab-tenet --remove-forward
+sudo firewall-cmd --reload
+sudo nmcli con mod br-tenet connection.zone lab-tenet
+sudo nmcli dev reapply br-tenet
+sudo firewall-cmd --get-active-zones
+</code></pre>
+<p><strong>HV01</strong> — Cockpit listens everywhere, access is filtered by the firewall (INC-08):</p>
+<pre><code class="language-bash">sudo systemctl revert cockpit.socket
+sudo systemctl daemon-reload &amp;&amp; sudo systemctl restart cockpit.socket
+sudo firewall-cmd --permanent --zone=public --remove-service=cockpit
+sudo firewall-cmd --permanent --zone=public \
+  --add-rich-rule='rule family=&quot;ipv4&quot; source address=&quot;192.168.1.0/24&quot; service name=&quot;cockpit&quot; accept'
+sudo firewall-cmd --reload
+</code></pre>
+<p><strong>HV01</strong> — publishing the WireGuard tunnel to the pfSense WAN:</p>
+<pre><code class="language-bash">sudo firewall-cmd --permanent --add-masquerade
+sudo firewall-cmd --permanent --zone=libvirt --add-masquerade
+sudo firewall-cmd --permanent \
+  --add-forward-port=port=51820:proto=udp:toaddr=192.168.122.95:toport=51820
+sudo firewall-cmd --reload
+</code></pre>
+<h2>C · pfSense (fw01)</h2>
+<p><strong>HV01</strong> — VM created in Cockpit (two virtio NICs: <code>default</code> then <code>tenet</code>), renamed, media ejected:</p>
+<pre><code class="language-bash">sudo virsh shutdown tenet-pfsense
+sudo virsh domrename tenet-pfsense pfsense-fw
+sudo virsh start pfsense-fw
+sudo virsh domblklist pfsense-fw
+sudo virsh change-media pfsense-fw sda --eject --config
+</code></pre>
+<p><strong>pfSense (console)</strong> — menu 1: <code>vtnet0</code> = WAN (DHCP on the NAT), <code>vtnet1</code> = LAN; menu 2: LAN <code>10.10.10.254/24</code>. Then, in the web interface:</p>
+<ul>
+<li><strong>System → Setup Wizard</strong>: name <code>fw01</code>, domain <code>infrasec.lab</code>, NTP, administrator password changed.</li>
+<li><strong>System → Advanced → Admin Access</strong>: HTTPS only (HTTP 80 listener removed, finding F-02).</li>
+<li><strong>Services → DNS Resolver → Domain Overrides</strong>: <code>infrasec.local</code> → <code>10.10.10.10</code> (PV-08).</li>
+<li><strong>VPN → WireGuard → Tunnels → Add</strong>: <code>tun_wg0</code>, port <code>51820</code>, address <code>10.10.20.1/24</code>.</li>
+<li><strong>Interfaces → Assignments</strong>: <code>tun_wg0</code> → <code>WG_REMOTE</code>, <strong>static IPv4 <code>10.10.20.1/24</code></strong> (INC-07).</li>
+<li><strong>VPN → WireGuard → Peers → Add Peer</strong>: one public key per device, unique <em>Allowed IPs</em> as <code>/32</code> (<code>10.10.20.2/32</code> admin, <code>10.10.20.3/32</code> employee, INC-06).</li>
+<li><strong>Firewall → Rules → WAN</strong>: a single rule, UDP 51820. <strong>WG_REMOTE</strong>: admin → <code>10.10.10.0/24</code>; employee → <code>10.10.10.20</code> TCP 445; everything else denied and logged.</li>
+<li><strong>Services → SNMP</strong>: listening on the LAN, random community; <strong>Firewall → Rules → LAN</strong>: UDP 161 allowed from <code>10.10.10.30</code> only, denied and logged for any other source.</li>
+<li><strong>Diagnostics → Backup &amp; Restore</strong>: encrypted XML export, stored in the host vault.</li>
+</ul>
+<p><strong>pfSense (console, option 8)</strong> — check:</p>
+<pre><code class="language-sh">ping -c3 1.1.1.1
+host cloudflare.com
+</code></pre>
+<h2>D · Windows domain controller (Win-Server-DC)</h2>
+<p><strong>DC (console)</strong> — fixed address, name, forest <code>infrasec.local</code> (DSRM password typed masked):</p>
+<pre><code class="language-powershell">New-NetIPAddress -InterfaceAlias &quot;Ethernet&quot; -IPAddress 10.10.10.10 `
+  -PrefixLength 24 -DefaultGateway 10.10.10.254
+Set-DnsClientServerAddress -InterfaceAlias &quot;Ethernet&quot; -ServerAddresses 127.0.0.1
+Rename-Computer -NewName &quot;DC01&quot; -Restart
+Install-WindowsFeature AD-Domain-Services -IncludeManagementTools
+$dsrm = Read-Host -AsSecureString &quot;DSRM password&quot;
+Install-ADDSForest -DomainName &quot;infrasec.local&quot; -DomainNetbiosName &quot;INFRASEC&quot; `
+  -InstallDns -SafeModeAdministratorPassword $dsrm -Force
+w32tm /config /manualpeerlist:10.10.10.254 /syncfromflags:manual /update
+</code></pre>
+<p><strong>DC</strong> — agents: Wazuh (to the SIEM) and windows_exporter (for Prometheus):</p>
+<pre><code class="language-powershell">Start-Process msiexec.exe -Wait -ArgumentList '/i','C:\path\wazuh-agent.msi', `
+  'WAZUH_MANAGER=10.10.10.40','WAZUH_AGENT_NAME=Win-Server-DC','/qn'
+Start-Service WazuhSvc
+msiexec /i windows_exporter.msi `
+  ENABLED_COLLECTORS=&quot;cpu,logical_disk,net,os,service,system,memory,process,tcp,ad,dns&quot; /qn
+</code></pre>
+<p><strong>DC</strong> — the INFRASEC company, after checking the hash of the script and the CSV (PV-05):</p>
+<pre><code class="language-powershell">Get-FileHash .\New-InfrasecCompany.ps1, .\employes.csv -Algorithm SHA256
+.\New-InfrasecCompany.ps1 -CsvPath .\employes.csv -WhatIf     # simulation
+.\New-InfrasecCompany.ps1 -CsvPath .\employes.csv              # creation
+</code></pre>
+<p><strong>DC</strong> — domain password policy and <code>PSO-Admins</code> for Domain Admins (F-24):</p>
+<pre><code class="language-powershell">Set-ADDefaultDomainPasswordPolicy -Identity infrasec.local -MinPasswordLength 14 `
+  -LockoutThreshold 10 -LockoutDuration 00:15:00 -LockoutObservationWindow 00:15:00 `
+  -MaxPasswordAge 365.00:00:00 -ComplexityEnabled $true
+New-ADFineGrainedPasswordPolicy -Name &quot;PSO-Admins&quot; -Precedence 10 -MinPasswordLength 20 `
+  -LockoutThreshold 5 -LockoutDuration 00:30:00 -LockoutObservationWindow 00:30:00 `
+  -MaxPasswordAge 180.00:00:00 -ComplexityEnabled $true
+$da = Get-ADGroup -Identity &quot;$((Get-ADDomain).DomainSID)-512&quot;     # Domain Admins, by SID
+Add-ADFineGrainedPasswordPolicySubject -Identity &quot;PSO-Admins&quot; -Subjects $da
+</code></pre>
+<p><strong>DC</strong> — GPO forbidding web browsing on domain controllers (F-17):</p>
+<pre><code class="language-powershell">$g = &quot;DC - Navigation interdite&quot;
+New-GPO -Name $g | New-GPLink -Target &quot;OU=Domain Controllers,DC=infrasec,DC=local&quot;
+Set-GPRegistryValue -Name $g -Key &quot;HKLM\SOFTWARE\Policies\Microsoft\Edge\URLBlocklist&quot; `
+  -ValueName &quot;1&quot; -Type String -Value &quot;*&quot;
+Set-GPRegistryValue -Name $g -Key &quot;HKLM\SOFTWARE\Policies\Microsoft\Edge&quot; `
+  -ValueName &quot;StartupBoostEnabled&quot; -Type DWord -Value 0
+Set-GPRegistryValue -Name $g -Key &quot;HKLM\SOFTWARE\Policies\Microsoft\Edge&quot; `
+  -ValueName &quot;BackgroundModeEnabled&quot; -Type DWord -Value 0
+gpupdate /force
+</code></pre>
+<p><strong>DC</strong> — OpenSSH limited to the hypervisor, PowerShell as default shell (PV-07):</p>
+<pre><code class="language-powershell">Start-Service sshd; Set-Service sshd -StartupType Automatic
+Set-NetFirewallRule -Name OpenSSH-Server-In-TCP -RemoteAddress 10.10.10.2 -Profile Domain
+New-ItemProperty -Path &quot;HKLM:\SOFTWARE\OpenSSH&quot; -Name DefaultShell -PropertyType String -Force `
+  -Value &quot;C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe&quot;
+</code></pre>
+<p><strong>HV01 then DC</strong> — <code>adm.rj</code> with a key only (the private key stays on the host, protected by a passphrase):</p>
+<pre><code class="language-bash">ssh-keygen -t ed25519 -a 100 -f ~/.ssh/id_ed25519_admrj      # HV01
+</code></pre>
+<pre><code class="language-powershell"># DC: public key in the file read for members of Administrators
+icacls C:\ProgramData\ssh\administrators_authorized_keys /inheritance:r `
+  /grant &quot;Administrators:F&quot; /grant &quot;SYSTEM:F&quot;
+# sshd_config (copy .bak-20261026): PasswordAuthentication no; AllowUsers infrasec\adm.rj
+&amp; C:\Windows\System32\OpenSSH\sshd.exe -t
+Restart-Service sshd
+</code></pre>
+<p><strong>DC</strong> — DNS forwarding to the Samba domain (PV-08):</p>
+<pre><code class="language-powershell">Add-DnsServerConditionalForwarderZone -Name &quot;infrasec.internal&quot; -MasterServers 10.10.10.11
+Clear-DnsServerCache -Force
+</code></pre>
+<p><strong>HV01 then DC</strong> — QEMU guest agent, for a clean shutdown from the hypervisor (F-26):</p>
+<pre><code class="language-bash">sudo virt-xml Win-Server-DC --add-device \
+  --channel unix,target.type=virtio,target.name=org.qemu.guest_agent.0
+</code></pre>
+<pre><code class="language-powershell">msiexec /i E:\guest-agent\qemu-ga-x86_64.msi /qn
+Get-Service QEMU-GA
+</code></pre>
+<h2>E · TrueNAS storage</h2>
+<p><strong>HV01</strong> — VM with three virtio disks, switched to BIOS to boot the installer (INC-01):</p>
+<pre><code class="language-bash">sudo virt-install --name truenas \
+  --disk path=/vm/images/truenas-os.qcow2,size=16,format=qcow2,bus=virtio \
+  --disk path=/vm/images/truenas-d1.qcow2,size=40,format=qcow2,bus=virtio \
+  --disk path=/vm/images/truenas-d2.qcow2,size=40,format=qcow2,bus=virtio \
+  --cdrom /vm/iso/&lt;truenas-scale&gt;.iso --network network=tenet,model=virtio \
+  --graphics vnc --noautoconsole
+sudo virsh dumpxml truenas &gt; truenas.xml     # remove &lt;firmware&gt;, &lt;loader&gt;, &lt;nvram&gt;
+sudo virsh define truenas.xml &amp;&amp; sudo virsh start truenas
+</code></pre>
+<p><strong>TrueNAS (web interface)</strong>:</p>
+<ul>
+<li><strong>Storage → Create Pool</strong>: <code>tank</code>, mirror on the two 40 GB disks.</li>
+<li><strong>Credentials → Directory Services</strong>: domain <code>INFRASEC.LOCAL</code>, dedicated service account (DC clock fixed first, INC-02).</li>
+<li><strong>Datasets</strong>: <code>tank/entreprise</code> (not shared, <code>Domain Users</code> with <em>Traverse</em> and no inheritance), then <code>Commun</code>, <code>Direction</code>, <code>Comptabilite</code>, <code>RH</code>, <code>Projets</code>.</li>
+<li><strong>Shares → SMB</strong>: one share per dataset; ACL: <code>DL_SMB_&lt;share&gt;_RW</code> → Modify, <code>DL_SMB_&lt;share&gt;_RO</code> → read (PV-05); <em>Audit Logging</em> on, watch list <code>INFRASEC\domain users</code> (F-20).</li>
+<li><strong>Data Protection → Periodic Snapshot Tasks</strong>: <code>tank/entreprise</code>, recursive, hourly, kept 2 weeks (PV-06).</li>
+</ul>
+<h2>F · Monitoring node fedora</h2>
+<p><strong>fedora</strong> — user services at boot, with no open session:</p>
+<pre><code class="language-bash">sudo loginctl enable-linger ais
+grep ais /etc/subuid /etc/subgid
+mkdir -p ~/.config/containers/systemd
+</code></pre>
+<p><strong>fedora</strong> — one service = one Quadlet file (node-exporter example; Prometheus, Grafana and the Zabbix pod follow the same model):</p>
+<pre><code class="language-ini"># ~/.config/containers/systemd/node-exporter.container
+[Unit]
+Description=Prometheus node-exporter (rootless)
+[Container]
+Image=quay.io/prometheus/node-exporter:latest
+Network=host
+Volume=/:/host:ro,rslave
+Exec=--path.rootfs=/host --collector.systemd
+[Install]
+WantedBy=default.target
+</code></pre>
+<pre><code class="language-bash">/usr/libexec/podman/quadlet -dryrun -user          # validation before switching
+systemctl --user daemon-reload
+systemctl --user start node-exporter prometheus grafana zabbix-pod
+podman top node-exporter huser                     # real UID: never root
+sudo firewall-cmd --permanent --remove-port=9100/tcp &amp;&amp; sudo firewall-cmd --reload
+</code></pre>
+<p><strong>fedora</strong> — Podman secret for the Zabbix database, then rotation without display (INC-09):</p>
+<pre><code class="language-bash">podman inspect zbx-db --format '{{range .Config.Env}}{{println .}}{{end}}' \
+  | sed -n 's/^POSTGRES_PASSWORD=//p' | podman secret create zbx-db-password -
+NEW=$(tr -dc 'A-Za-z0-9' &lt;/dev/urandom | head -c 32)
+printf &quot;ALTER ROLE zabbix WITH PASSWORD '%s';\n&quot; &quot;$NEW&quot; | podman exec -i zbx-db psql -U zabbix -d zabbix
+printf '%s' &quot;$NEW&quot; | podman secret create --replace zbx-db-password - ; unset NEW
+# zbx-db.container: Secret=zbx-db-password,type=env,target=POSTGRES_PASSWORD
+#                   Volume=zbx-pg:/var/lib/postgresql/data:Z
+</code></pre>
+<p><strong>fedora</strong> — Prometheus target added, configuration validated before restart (F-16):</p>
+<pre><code class="language-bash">cp ~/prometheus/prometheus.yml ~/prometheus/prometheus.yml.bak-$(date +%F)
+# target 10.10.10.40:9100 appended at the end of the file
+podman exec prometheus promtool check config /etc/prometheus/prometheus.yml
+systemctl --user restart prometheus
+</code></pre>
+<p><strong>fedora</strong> — SSH hardening (drop-in) and automatic updates:</p>
+<pre><code class="language-bash"># /etc/ssh/sshd_config.d/99-hardening.conf: PermitRootLogin no, AllowTcpForwarding no,
+# X11Forwarding no, MaxAuthTries 3, ClientAliveInterval 300, ClientAliveCountMax 2, LogLevel VERBOSE
+sudo sshd -t &amp;&amp; sudo systemctl reload sshd
+sudo systemctl enable --now dnf5-automatic.timer
+sudo lynis audit system
+</code></pre>
+<h2>G · SIEM wazuh-siem</h2>
+<p><strong>SIEM</strong> — all-in-one installation, then automatic restart of the manager (INC-11):</p>
+<pre><code class="language-bash">curl -sO https://packages.wazuh.com/4.14/wazuh-install.sh
+sudo bash ./wazuh-install.sh -a
+sudo mkdir -p /etc/systemd/system/wazuh-manager.service.d
+printf '[Service]\nRestart=on-failure\nRestartSec=30\n' \
+  | sudo tee /etc/systemd/system/wazuh-manager.service.d/restart.conf
+sudo systemctl daemon-reload
+</code></pre>
+<p><strong>SIEM</strong> — host firewall: one rule per legitimate flow (F-15):</p>
+<pre><code class="language-bash">sudo ufw default deny incoming &amp;&amp; sudo ufw default allow outgoing
+sudo ufw allow from 10.10.10.2 to any port 22,443,9090 proto tcp comment 'admin from HV01'
+sudo ufw allow from 10.10.10.0/24 to any port 1514,1515 proto tcp comment 'agents, enrolment'
+sudo ufw allow from 10.10.10.30 to any port 55000,9100 proto tcp comment 'Zabbix, Prometheus'
+sudo ufw logging low &amp;&amp; sudo ufw enable
+sudo apt install -y prometheus-node-exporter
+</code></pre>
+<p><strong>SIEM</strong> — whodata monitoring of the StartUp folder, pushed to Windows agents (F-19):</p>
+<pre><code class="language-xml">&lt;!-- /var/ossec/etc/shared/default/agent.conf --&gt;
+&lt;agent_config os=&quot;Windows&quot;&gt;
+  &lt;syscheck&gt;
+    &lt;directories realtime=&quot;yes&quot; whodata=&quot;yes&quot;&gt;C:\ProgramData\Microsoft\Windows\Start Menu\Programs\StartUp&lt;/directories&gt;
+  &lt;/syscheck&gt;
+&lt;/agent_config&gt;
+</code></pre>
+<pre><code class="language-bash">sudo /var/ossec/bin/verify-agent-conf
+</code></pre>
+<p><strong>SIEM</strong> — local rules, validated before reloading (100100, 100300, 100310, 100320):</p>
+<pre><code class="language-xml">&lt;!-- /var/ossec/etc/rules/local_rules.xml (excerpt) --&gt;
+&lt;rule id=&quot;100300&quot; level=&quot;12&quot;&gt;
+  &lt;if_sid&gt;550, 554&lt;/if_sid&gt;
+  &lt;field name=&quot;file&quot; type=&quot;pcre2&quot;&gt;(?i)\\start menu\\programs\\startup\\&lt;/field&gt;
+  &lt;description&gt;INFRASEC - persistence: file in the StartUp folder&lt;/description&gt;
+  &lt;mitre&gt;&lt;id&gt;T1547.001&lt;/id&gt;&lt;/mitre&gt;
+&lt;/rule&gt;
+&lt;rule id=&quot;100310&quot; level=&quot;10&quot;&gt;
+  &lt;if_sid&gt;506&lt;/if_sid&gt;
+  &lt;description&gt;INFRASEC - Wazuh agent stopped&lt;/description&gt;
+  &lt;mitre&gt;&lt;id&gt;T1562.001&lt;/id&gt;&lt;/mitre&gt;
+&lt;/rule&gt;
+&lt;rule id=&quot;100320&quot; level=&quot;10&quot;&gt;
+  &lt;if_sid&gt;60115&lt;/if_sid&gt;
+  &lt;description&gt;INFRASEC - account locked out&lt;/description&gt;
+  &lt;mitre&gt;&lt;id&gt;T1110&lt;/id&gt;&lt;/mitre&gt;
+&lt;/rule&gt;
+</code></pre>
+<pre><code class="language-bash">sudo cp /var/ossec/etc/rules/local_rules.xml /var/ossec/etc/rules/local_rules.xml.bak-$(date +%Y%m%d)
+sudo /var/ossec/bin/wazuh-analysisd -t &amp;&amp; sudo systemctl restart wazuh-manager
+</code></pre>
+<p><strong>SIEM</strong> — retention: 90-day ISM policy, called with the admin certificate (F-21):</p>
+<pre><code class="language-bash">C=/etc/wazuh-indexer/certs
+sudo curl --cacert $C/root-ca.pem --cert $C/admin.pem --key $C/admin-key.pem \
+  -X PUT https://127.0.0.1:9200/_plugins/_ism/policies/infrasec-retention-90j \
+  -H 'Content-Type: application/json' -d @ism-retention-90j.json
+sudo curl --cacert $C/root-ca.pem --cert $C/admin.pem --key $C/admin-key.pem \
+  -X POST 'https://127.0.0.1:9200/_plugins/_ism/add/wazuh-alerts-*' \
+  -H 'Content-Type: application/json' -d '{&quot;policy_id&quot;:&quot;infrasec-retention-90j&quot;}'
+</code></pre>
+<p><strong>SIEM</strong> — daily sealing with catch-up at boot:</p>
+<pre><code class="language-bash">sudo install -o root -g root -m 0755 wazuh-sceller-journaux /usr/local/sbin/
+sudo install -m 0644 wazuh-sceller-journaux.service wazuh-sceller-journaux.timer /etc/systemd/system/
+sudo systemctl daemon-reload &amp;&amp; sudo systemctl enable --now wazuh-sceller-journaux.timer
+</code></pre>
+<p><strong>SIEM then HV01</strong> — installation secrets encrypted and moved off the SIEM (F-22):</p>
+<pre><code class="language-bash">sudo gpg --symmetric --cipher-algo AES256 wazuh-install-files.tar        # SIEM
+sha256sum wazuh-install-files.tar.gpg
+scp ais@10.10.10.40:wazuh-install-files.tar.gpg ~/coffre/                # HV01
+chmod 700 ~/coffre &amp;&amp; chmod 600 ~/coffre/*
+sudo shred -u wazuh-install-files.tar wazuh-install-files.tar.gpg       # SIEM, after checking
+</code></pre>
+<h2>H · Continuity controller lnx-dc01 (Samba AD)</h2>
+<p><strong>lnx-dc01</strong> — minimal Debian 13, fixed address <code>10.10.10.11</code>, <code>root</code> locked, domain provisioning (administrator password typed at the prompt):</p>
+<pre><code class="language-bash">sudo apt install -y samba winbind krb5-user smbclient ldb-tools dnsutils ufw
+sudo systemctl disable --now smbd nmbd winbind
+sudo mv /etc/samba/smb.conf /etc/samba/smb.conf.orig
+sudo samba-tool domain provision --use-rfc2307 --realm=INFRASEC.INTERNAL --domain=INFRALNX \
+  --server-role=dc --dns-backend=SAMBA_INTERNAL --option=&quot;dns forwarder = 10.10.10.254&quot;
+sudo cp /var/lib/samba/private/krb5.conf /etc/krb5.conf
+sudo systemctl unmask samba-ad-dc &amp;&amp; sudo systemctl enable --now samba-ad-dc
+sudo passwd -l root
+</code></pre>
+<p><strong>lnx-dc01</strong> — same password policy as the Windows domain (F-24):</p>
+<pre><code class="language-bash">sudo samba-tool domain passwordsettings set --min-pwd-length=14 --account-lockout-threshold=10 \
+  --account-lockout-duration=15 --reset-account-lockout-after=15 --max-pwd-age=365
+sudo samba-tool domain passwordsettings pso create PSO-Admins 10 --min-pwd-length=20 \
+  --account-lockout-threshold=5 --account-lockout-duration=30 --reset-account-lockout-after=30 \
+  --max-pwd-age=180
+sudo samba-tool domain passwordsettings pso apply PSO-Admins &quot;Domain Admins&quot;
+</code></pre>
+<p><strong>lnx-dc01</strong> — same company, same source file, checked by its hash (PV-08):</p>
+<pre><code class="language-bash">sha256sum employes.csv infrasec-samba-societe.sh
+sudo ./infrasec-samba-societe.sh employes.csv --dry-run
+sudo ./infrasec-samba-societe.sh employes.csv
+</code></pre>
+<p><strong>lnx-dc01</strong> — Wazuh agent at the manager's version, held; firewall (F-25):</p>
+<pre><code class="language-bash">sudo WAZUH_MANAGER=10.10.10.40 apt install -y wazuh-agent=4.14.8-1
+sudo apt-mark hold wazuh-agent &amp;&amp; sudo systemctl enable --now wazuh-agent
+sudo ufw default deny incoming &amp;&amp; sudo ufw logging low
+sudo ufw allow from 10.10.10.2 to any port 22 proto tcp comment 'SSH from HV01'
+sudo ufw allow from 10.10.10.0/24 to any port 53,88,389,464 comment 'directory tcp/udp'
+sudo ufw allow from 10.10.10.0/24 to any port 135,445,636,3268,3269 proto tcp comment 'directory tcp'
+sudo ufw allow from 10.10.10.0/24 to any port 49152:65535 proto tcp comment 'dynamic RPC'
+sudo ufw show added &amp;&amp; sudo ufw enable
+</code></pre>
+<p><strong>pfSense</strong> — Windows domain forwarding for Samba: <strong>Services → DNS Resolver → Domain Overrides</strong>, <code>infrasec.local</code> → <code>10.10.10.10</code>.</p>
+<h2>I · Remote client wg-client</h2>
+<p><strong>wg-client</strong> — key generated on the device; only the public key goes to the firewall:</p>
+<pre><code class="language-bash">umask 077
+wg genkey &gt; user.key
+wg pubkey &lt; user.key &gt; user.pub
+cat user.pub
+# /etc/wireguard/wg0.conf: Address = 10.10.20.3/32; Endpoint = 192.168.122.95:51820
+sudo wg-quick up wg0
+</code></pre>
+<p><strong>HV01</strong> — guest agent for a clean shutdown (F-26):</p>
+<pre><code class="language-bash">sudo virt-xml wg-client --add-device \
+  --channel unix,target.type=virtio,target.name=org.qemu.guest_agent.0
+</code></pre>
+<h2>J · Operations from HV01</h2>
+<p><strong>HV01</strong> — capacity: VM memory reduced from measurement (F-23):</p>
+<pre><code class="language-bash">sudo virsh dommemstat &lt;vm&gt;
+sudo virsh setmaxmem pfsense-fw 2G --config &amp;&amp; sudo virsh setmem pfsense-fw 2G --config
+sudo virsh setmaxmem Win-Server-DC 4G --config &amp;&amp; sudo virsh setmem Win-Server-DC 4G --config
+</code></pre>
+<p><strong>HV01</strong> — operations scripts (scripts annex):</p>
+<pre><code class="language-bash">sha256sum lab lab-backup
+sudo install -o root -g root -m 0755 lab lab-backup /usr/local/bin/
+sudo lab start            # ordered start, real DNS wait
+sudo lab stop             # clean shutdown: guest agent, else ACPI; never forced
+sudo lab-backup local     # read-only BTRFS snapshot + annex + hashes
+</code></pre>
+<p><strong>HV01</strong> — snapshots before and after each operation:</p>
+<pre><code class="language-bash">sudo virsh shutdown &lt;vm&gt;; sleep 25
+sudo virsh snapshot-create-as &lt;vm&gt; &lt;label&gt; &quot;&lt;description&gt;&quot;
+sudo virsh start &lt;vm&gt;
+sudo snapper -c root create -d &quot;POST-&lt;OPERATION&gt;-STABLE&quot;
+</code></pre><h1>Test commands (proof of concept)</h1><p>These commands prove the lab works, without changing anything unless stated. For each: where to type it, and what you should see. A filtering test always runs from a third machine, never from the target; a remote access test always starts from wg-client, never from the host (INC-05).</p>
+<h2>1 · Host HV01</h2>
+<pre><code class="language-bash">sudo lab status                         # 7 VMs &quot;running&quot;
+getenforce                              # Enforcing
+sudo ls -lZ /vm/images/                 # svirt_image_t and a c…,c… pair per VM
+sudo firewall-cmd --get-active-zones    # lab-tenet → br-tenet; public → wlo1
+sudo firewall-cmd --zone=lab-tenet --query-forward   # no
+journalctl -t lab --since today         # every start and stop step
+sudo snapper -c root list | grep STABLE # return points
+sudo lab-backup list                    # disques:ro=true  annexe:ro=true
+sudo lab-backup verify                  # intégrité : OK (integrity OK)
+free -h                                 # almost no swap, memory available
+</code></pre>
+<h2>2 · Remote access (wg-client)</h2>
+<pre><code class="language-bash">sudo wg show                            # latest handshake: a few seconds ago
+nc -zv -w3 10.10.10.20 445              # succeeded: share allowed
+nc -zv -w3 10.10.10.10 3389             # timed out: denied, logged on WG_REMOTE
+ip route get 10.10.10.10                # leaves through wg0, never ens3
+</code></pre>
+<p><strong>pfSense</strong> — <strong>Status → System Logs → Firewall</strong>: the denials from <code>10.10.20.3</code> on <code>WG_REMOTE</code>; <strong>VPN → WireGuard → Status</strong>: recent handshake.</p>
+<h2>3 · Windows domain controller (SSH from HV01)</h2>
+<pre><code class="language-bash">ssh -i ~/.ssh/id_ed25519_admrj -l 'infrasec\adm.rj' 10.10.10.10    # accepted, with the key
+ssh -l 'INFRASEC\Administrator' 10.10.10.10                        # Permission denied
+</code></pre>
+<pre><code class="language-powershell">Get-ADDomain | Select-Object Forest,DNSRoot      # infrasec.local
+nltest /dsgetdc:infrasec.local                   # DC01, success
+Get-ADUserResultantPasswordPolicy adm.rj         # PSO-Admins: 20, lockout at 5
+Get-ADDefaultDomainPasswordPolicy                # 14 characters, lockout at 10
+gpresult /r /scope computer                      # &quot;DC - Navigation interdite&quot; applied
+Get-Service WazuhSvc, windows_exporter, sshd, QEMU-GA    # Running
+Resolve-DnsName lnx-dc01.infrasec.internal       # 10.10.10.11
+w32tm /query /source                             # 10.10.10.254
+</code></pre>
+<h2>4 · Samba controller lnx-dc01</h2>
+<pre><code class="language-bash">sudo samba-tool domain level show                # domain level
+sudo samba-tool user list | wc -l                # 15 accounts
+sudo samba-tool domain passwordsettings pso show-user administrator   # PSO-Admins
+host -t SRV _ldap._tcp.infrasec.local            # 0 100 389 dc01.infrasec.local.
+sudo ufw status verbose                          # default deny, 4 rules
+sudo ./infrasec-samba-societe.sh employes.csv    # idempotence: &quot;=== terminé&quot; only
+</code></pre>
+<h2>5 · TrueNAS storage (System → Shell)</h2>
+<pre><code class="language-sh">zpool status tank                               # mirror-0 ONLINE, No known data errors
+zfs list -t snapshot -r tank/entreprise | tail -6   # hourly snapshots
+wbinfo -t &amp;&amp; net ads testjoin                   # trust OK, Join is OK
+midclt call audit.query '[[&quot;service&quot;,&quot;=&quot;,&quot;SMB&quot;]]' '{&quot;limit&quot;:20,&quot;order_by&quot;:[&quot;-message_timestamp&quot;]}' | jq '.[].event'
+</code></pre>
+<h2>6 · Share access control (fedora, PV-05 test accounts)</h2>
+<pre><code class="language-bash">smbclient //10.10.10.20/Projets -U 'INFRASEC\k.haddad' -c 'put /etc/hostname k.haddad.txt'   # OK
+smbclient //10.10.10.20/RH -U 'INFRASEC\k.haddad' -c 'ls'      # NT_STATUS_ACCESS_DENIED
+smbclient //10.10.10.20/RH -U 'INFRASEC\c.morel' -c 'ls'       # OK, read
+smbclient //10.10.10.20/RH -U 'INFRASEC\c.morel' -c 'put /etc/hostname x.txt'   # ACCESS_DENIED
+</code></pre>
+<h2>7 · Monitoring (fedora)</h2>
+<pre><code class="language-bash">podman ps                                        # 7 containers Up
+systemctl --user status prometheus grafana node-exporter --no-pager   # active (running)
+curl -s localhost:9091/api/v1/targets | jq '.data.activeTargets[].health'   # &quot;up&quot; × 4
+podman inspect zbx-db --format '{{.Config.Env}}' | grep -c POSTGRES_PASSWORD=   # 0
+nc -zv -w3 10.10.10.40 22                        # timed out: SIEM SSH closed to fedora (F-15)
+nc -zv -w3 10.10.10.40 1514                      # succeeded: agent reception
+</code></pre>
+<p><strong>HV01 browser</strong> — Grafana <code>http://10.10.10.30:3000</code>: rules "Cible injoignable" and "Disque presque plein" in <em>Normal</em>; Zabbix <code>http://10.10.10.30:8080</code>: <code>fw01</code> available over SNMP, <code>tun_wg0</code> = <code>up (1)</code>, both SIEM checks at 1.</p>
+<h2>8 · SIEM wazuh-siem</h2>
+<pre><code class="language-bash">sudo systemctl is-active wazuh-manager wazuh-indexer wazuh-dashboard   # active × 3
+systemctl show wazuh-manager -p Restart -p RestartUSec                 # on-failure, 30s
+sudo /var/ossec/bin/agent_control -l             # 001 fedora, 002 dc01, 003 lnx-dc01: Active
+sudo ufw status numbered                         # 7 rules, default deny
+cd /var/ossec/logs/alerts/2026/Oct &amp;&amp; sha256sum -c *.sha256   # OK for each sealed day
+systemctl list-timers wazuh-sceller-journaux.timer             # next run 00:30 UTC
+sudo grep -c '&quot;rule&quot;:{&quot;level&quot;:1[0-5]' /var/ossec/logs/alerts/alerts.json   # today's alerts ≥ 10
+</code></pre>
+<h2>9 · Detection scenarios (change state; undo right after)</h2>
+<p><strong>DC</strong> — persistence (F-19): alert 100300, level 12, within 2 s.</p>
+<pre><code class="language-powershell">New-Item &quot;C:\ProgramData\Microsoft\Windows\Start Menu\Programs\StartUp\maj.bat&quot; -Value &quot;rem test&quot;
+Remove-Item &quot;C:\ProgramData\Microsoft\Windows\Start Menu\Programs\StartUp\maj.bat&quot;
+</code></pre>
+<p><strong>DC</strong> — disabling the agent (F-18): alert 100310, level 10.</p>
+<pre><code class="language-powershell">sc.exe stop WazuhSvc; Start-Sleep 45; sc.exe start WazuhSvc
+</code></pre>
+<p><strong>fedora</strong> — slow attack on an account (F-24): lockout at the 10th failure, alert 100320 with no 60204. Unlock afterwards.</p>
+<pre><code class="language-bash">for i in $(seq 1 10); do smbclient //10.10.10.20/Commun -U 'INFRASEC\k.haddad%wrong' -c ls; sleep 40; done
+</code></pre>
+<pre><code class="language-powershell">Unlock-ADAccount k.haddad; Get-ADUser k.haddad -Properties LockedOut,badPwdCount
+</code></pre>
+<p><strong>HV01</strong> — SSH brute force (PV-03, PV-04): alert 100100, level 12, from the 5th attempt.</p>
+<pre><code class="language-bash">for i in $(seq 1 8); do ssh -o BatchMode=yes -o ConnectTimeout=3 fake$i@10.10.10.30 true; done
+</code></pre>
+<p><strong>SIEM</strong> — SIEM stopped (INC-11): two <em>High</em> problems in Zabbix within 3 minutes.</p>
+<pre><code class="language-bash">sudo systemctl stop wazuh-manager      # wait for the Zabbix alert, then:
+sudo systemctl start wazuh-manager
+</code></pre>
+<p><strong>fedora</strong> — unreachable target: Grafana goes <em>Firing</em> after 2 minutes, then back to <em>Normal</em>.</p>
+<pre><code class="language-bash">systemctl --user stop node-exporter    # wait for Firing, then:
+systemctl --user start node-exporter
+</code></pre></article></main>
+<footer>© 2026 RJ · All rights reserved · Read-only project, advice welcome in Discussions · <a href="https://github.com/0x1void/hybrid-infrasec/discussions">Discussions</a></footer></body></html>
